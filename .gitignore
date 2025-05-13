@@ -1,0 +1,56 @@
+# ========================
+# DEPENDÊNCIAS E GERENCIADORES
+# ========================
+/node_modules/
+.pnp/
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ========================
+# ARQUIVOS DE TESTE E COBERTURA
+# ========================
+/coverage/
+
+# ========================
+# ARQUIVOS GERADOS PELO NEXT.JS
+# ========================
+/.next/
+out/
+
+# ========================
+# CONSTRUÇÃO EM PRODUÇÃO
+# ========================
+/build/
+
+# ========================
+# ARQUIVOS TEMPORÁRIOS E DO SISTEMA
+# ========================
+.DS_Store
+*.pem
+
+# ========================
+# LOGS E DEPURAÇÃO
+# ========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================
+# VARIÁVEIS DE AMBIENTE (NUNCA VERSÃO REAL)
+/.env*
+!.env.example  # <- mantenha um exemplo para colaboração
+
+# ========================
+# CONFIGURAÇÕES DE DEPLOY (VERCEL)
+# ========================
+.vercel/
+
+# ========================
+# TYPESCRIPT (se aplicável)
+*.tsbuildinfo
+next-env.d.ts
