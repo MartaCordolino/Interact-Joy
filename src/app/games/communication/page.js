@@ -3,40 +3,43 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Head from 'next/head';
 import { useRouter } from 'next/navigation';
-
 import AccessibilityControls from '@components/AccessibilityControls';
 import { DndContext } from '@dnd-kit/core';
 import { AccessibleButton, DraggableWord, DroppableArea } from '@components/DragDropWord';
 import RewardAnimation from '@components/RewardAnimation';
 import { AudioFeedbackSpeak } from '@components/AudioFeedback';
+import { DifficultyProvider, useDifficulty } from '@/components/DifficultyManager';
 
-export default function CommunicationGame() {
+function CommunicationGameScreen() {
   const router = useRouter();
-  const [currentLevel, setCurrentLevel] = useState(1);
+  const { settings, increaseDifficulty, decreaseDifficulty } = useDifficulty();
+  const currentLevel = settings.communication?.level ?? 0;
+
   const [sentence, setSentence] = useState([]);
   const [availableWords, setAvailableWords] = useState([]);
   const [userSentence, setUserSentence] = useState([]);
   const [showReward, setShowReward] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
-  const [instruction, setInstruction] = useState("");
+  const [instruction, setInstruction] = useState('');
+
+  const levelData = {
+    0: {
+      instruction: 'Forme a frase: EU GOSTO DE BRINCAR',
+      words: ['EU', 'GOSTO', 'DE', 'BRINCAR', 'COMER', 'VOCÊ'],
+      correctSentence: ['EU', 'GOSTO', 'DE', 'BRINCAR']
+    },
+    1: {
+      instruction: 'Forme a frase: O CACHORRO É GRANDE E PELUDO',
+      words: ['O', 'CACHORRO', 'É', 'GRANDE', 'E', 'PELUDO', 'PEQUENO', 'GATO'],
+      correctSentence: ['O', 'CACHORRO', 'É', 'GRANDE', 'E', 'PELUDO']
+    }
+    // Adicione mais níveis aqui se desejar
+  };
 
   useEffect(() => {
-    const levelData = {
-      1: {
-        instruction: "Forme a frase: EU GOSTO DE BRINCAR",
-        words: ["EU", "GOSTO", "DE", "BRINCAR", "COMER", "VOCÊ"],
-        correctSentence: ["EU", "GOSTO", "DE", "BRINCAR"]
-      },
-      2: {
-        instruction: "Forme a frase: O CACHORRO É GRANDE E PELUDO",
-        words: ["O", "CACHORRO", "É", "GRANDE", "E", "PELUDO", "PEQUENO", "GATO"],
-        correctSentence: ["O", "CACHORRO", "É", "GRANDE", "E", "PELUDO"]
-      }
-    };
-
-    if (levelData[currentLevel]) {
-      const level = levelData[currentLevel];
+    const level = levelData[currentLevel];
+    if (level) {
       setSentence(level.correctSentence);
       setInstruction(level.instruction);
       const shuffled = [...level.words].sort(() => 0.5 - Math.random());
@@ -50,13 +53,13 @@ export default function CommunicationGame() {
       if (!userSentence.includes(active.id)) {
         setUserSentence([...userSentence, active.id]);
         setAvailableWords(availableWords.filter(w => w !== active.id));
-        AudioFeedbackSpeak("Palavra adicionada à frase");
+        AudioFeedbackSpeak('Palavra adicionada à frase');
       }
     }
   };
 
   const handleRemoveWord = (index) => {
-    AudioFeedbackSpeak("Palavra removida da frase");
+    AudioFeedbackSpeak('Palavra removida da frase');
     const removedWord = userSentence[index];
     const newSentence = [...userSentence];
     newSentence.splice(index, 1);
@@ -67,25 +70,24 @@ export default function CommunicationGame() {
   const checkSentence = () => {
     setAttempts(attempts + 1);
     const isCorrect = userSentence.length === sentence.length &&
-                      userSentence.every((word, index) => word === sentence[index]);
+      userSentence.every((word, index) => word === sentence[index]);
+
     if (isCorrect) {
-      AudioFeedbackSpeak("Parabéns! Você acertou!");
+      AudioFeedbackSpeak('Parabéns! Você acertou!');
       setShowReward(true);
-      localStorage.setItem(`level_${currentLevel}_complete`, 'true');
+      increaseDifficulty('communication');
+
       setTimeout(() => {
         setShowReward(false);
-        if (currentLevel < 2) {
-          setCurrentLevel(currentLevel + 1);
-          setUserSentence([]);
-        } else {
-          localStorage.setItem('newAchievement', 'communication_complete');
-          router.push('/dashboard');
-        }
+        setUserSentence([]);
+        setAttempts(0);
+        setShowHelp(false);
       }, 3000);
     } else {
-      AudioFeedbackSpeak("Tente novamente!");
+      AudioFeedbackSpeak('Tente novamente!');
       if (attempts >= 2) {
         setShowHelp(true);
+        decreaseDifficulty('communication');
       }
     }
   };
@@ -115,7 +117,7 @@ export default function CommunicationGame() {
           </button>
           <h1 className="text-white text-xl font-bold">Forme Palavras</h1>
           <div className="bg-yellow-400 rounded-full px-3 py-1 mr-15">
-            <span className="text-white font-bold">Nível {currentLevel}</span>
+            <span className="text-white font-bold">Nível {currentLevel + 1}</span>
           </div>
         </div>
       </header>
@@ -141,7 +143,7 @@ export default function CommunicationGame() {
               className="mt-3 p-3 bg-blue-50 rounded border border-blue-200"
               aria-live="polite"
             >
-              <p><strong>Dica:</strong> Comece com a palavra &quot;<em>{sentence[0]}</em>&quot; e depois continue na ordem da frase esperada.</p>
+              <p><strong>Dica:</strong> Comece com a palavra &quot;<em>{sentence[0]}</em>&quot; e continue na ordem.</p>
               <p>As palavras devem estar na ordem correta.</p>
             </div>
           )}
@@ -189,5 +191,14 @@ export default function CommunicationGame() {
         />
       )}
     </div>
+  );
+}
+
+// Exporta com DifficultyProvider
+export default function CommunicationGame() {
+  return (
+    <DifficultyProvider userId="usuario123">
+      <CommunicationGameScreen />
+    </DifficultyProvider>
   );
 }

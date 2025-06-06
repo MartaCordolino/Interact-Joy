@@ -1,12 +1,214 @@
-//src/components/DifficultyManager.js
-import { useState, useEffect, createContext, useContext } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  createContext,
+  useContext,
+  useMemo,
+} from 'react';
 
-// Cria um contexto para compartilhar o estado de dificuldade em toda a aplicação
+// Cria o contexto de dificuldade
 const DifficultyContext = createContext();
 
-/**
- * Hook personalizado para usar o gerenciador de dificuldade em componentes
- */
+// Hook principal que gerencia a dificuldade adaptativa
+const useDifficultyManager = (initialSettings = {}, userId = null) => {
+  const defaultSettings = {
+    global: {
+      level: 1,
+      maxLevel: 10,
+      autoAdjust: true,
+      timerDuration: 0,
+      visualComplexity: 'low',
+      audioVolume: 0.7,
+      reinforcementFrequency: 'high',
+      allowRepeatInstruction: true, // Novo: controle do botão repetir
+    },
+    communication: {
+      level: 1,
+      maxLevel: 10,
+      vocabularySize: 10,
+      sentenceComplexity: 'simple',
+      conceptAbstraction: 'concrete',
+      instructionComplexity: 'basic', // Novo
+    },
+    emotions: {
+      level: 1,
+      maxLevel: 10,
+      emotionVariety: 4,
+      contextComplexity: 'simple',
+      subtletyLevel: 'obvious',
+      instructionComplexity: 'basic', // Novo
+    },
+    social: {
+      level: 1,
+      maxLevel: 10,
+      interactionComplexity: 'one-on-one',
+      socialCuesVariety: 'basic',
+      decisionTimeLimit: 0,
+      instructionComplexity: 'basic', // Novo
+    },
+  };
+
+  const [settings, setSettings] = useState(() => ({
+    ...defaultSettings,
+    ...initialSettings,
+  }));
+
+  const [performanceHistory, setPerformanceHistory] = useState({
+    communication: [],
+    emotions: [],
+    social: [],
+  });
+
+  const loadSettings = useCallback((userId) => {
+    try {
+      const saved = localStorage.getItem(`difficulty_${userId}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error("Erro ao carregar configurações de dificuldade:", error);
+      return null;
+    }
+  }, []);
+
+  const saveSettings = useCallback((userId, settings) => {
+    try {
+      localStorage.setItem(`difficulty_${userId}`, JSON.stringify(settings));
+    } catch (error) {
+      console.error("Erro ao salvar configurações de dificuldade:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    const saved = loadSettings(userId);
+    if (saved) {
+      setSettings((prev) => ({ ...prev, ...saved }));
+    }
+  }, [userId, loadSettings]);
+
+  useEffect(() => {
+    if (userId) {
+      saveSettings(userId, settings);
+    }
+  }, [settings, userId, saveSettings]);
+
+  const updateSetting = useCallback((category, key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value,
+      },
+    }));
+  }, []);
+
+  const adjustCategorySpecificParameters = useCallback((category, level) => {
+    const set = (key, val) => updateSetting(category, key, val);
+
+    switch (category) {
+      case 'communication':
+        set('vocabularySize', 10 + (level - 1) * 5);
+        set('sentenceComplexity',
+          level <= 3 ? 'simple' :
+          level <= 7 ? 'moderate' : 'complex'
+        );
+        set('conceptAbstraction',
+          level <= 4 ? 'concrete' :
+          level <= 7 ? 'mixed' : 'abstract'
+        );
+        set('instructionComplexity',
+          level <= 3 ? 'basic' :
+          level <= 7 ? 'detailed' : 'concise'
+        );
+        break;
+
+      case 'emotions':
+        set('emotionVariety', 4 + (level - 1));
+        set('contextComplexity',
+          level <= 3 ? 'simple' :
+          level <= 7 ? 'moderate' : 'complex'
+        );
+        set('subtletyLevel',
+          level <= 4 ? 'obvious' :
+          level <= 8 ? 'moderate' : 'subtle'
+        );
+        set('instructionComplexity',
+          level <= 3 ? 'basic' :
+          level <= 7 ? 'detailed' : 'concise'
+        );
+        break;
+
+      case 'social':
+        set('interactionComplexity',
+          level <= 3 ? 'one-on-one' :
+          level <= 7 ? 'group' : 'dynamic-group'
+        );
+        set('socialCuesVariety',
+          level <= 4 ? 'basic' :
+          level <= 8 ? 'intermediate' : 'advanced'
+        );
+        set('decisionTimeLimit', level <= 3 ? 0 : 10 - Math.floor(level / 2));
+        set('instructionComplexity',
+          level <= 3 ? 'basic' :
+          level <= 7 ? 'detailed' : 'concise'
+        );
+        break;
+
+      default:
+        console.warn(`Categoria desconhecida: ${category}`);
+    }
+
+    // Ajuste global relacionado à repetição de instruções
+    updateSetting('global', 'allowRepeatInstruction', level <= 4);
+  }, [updateSetting]);
+
+  const adjustDifficultyBasedOnPerformance = useCallback((category, performancePercent) => {
+    const recent = performanceHistory[category].slice(-3);
+    const average = recent.length
+      ? recent.reduce((sum, val) => sum + val, 0) / recent.length
+      : performancePercent;
+
+    const current = settings[category].level;
+    const max = settings[category].maxLevel;
+
+    if (average >= 85 && current < max) {
+      const newLevel = current + 1;
+      updateSetting(category, 'level', newLevel);
+      adjustCategorySpecificParameters(category, newLevel);
+      return 'increased';
+    } else if (average <= 40 && current > 1) {
+      const newLevel = current - 1;
+      updateSetting(category, 'level', newLevel);
+      adjustCategorySpecificParameters(category, newLevel);
+      return 'decreased';
+    }
+
+    return 'maintained';
+  }, [settings, performanceHistory, updateSetting, adjustCategorySpecificParameters]);
+
+  const recordPerformance = useCallback((category, score, totalPossible) => {
+    const percent = (score / totalPossible) * 100;
+
+    setPerformanceHistory((prev) => ({
+      ...prev,
+      [category]: [...prev[category].slice(-9), percent],
+    }));
+
+    if (settings.global.autoAdjust) {
+      return adjustDifficultyBasedOnPerformance(category, percent);
+    }
+
+    return percent;
+  }, [adjustDifficultyBasedOnPerformance, settings.global.autoAdjust]);
+
+  return useMemo(() => ({
+    settings,
+    updateSetting,
+    recordPerformance,
+  }), [settings, updateSetting, recordPerformance]);
+};
+
+// Hook personalizado para acessar o contexto
 export const useDifficulty = () => {
   const context = useContext(DifficultyContext);
   if (!context) {
@@ -15,10 +217,8 @@ export const useDifficulty = () => {
   return context;
 };
 
-/**
- * Provedor de contexto para o gerenciador de dificuldade
- */
-export const DifficultyProvider = ({ children, initialSettings, userId }) => {
+// Componente provedor do contexto de dificuldade
+export const DifficultyProvider = ({ children, initialSettings = {}, userId = null }) => {
   const value = useDifficultyManager(initialSettings, userId);
   return (
     <DifficultyContext.Provider value={value}>
@@ -26,245 +226,3 @@ export const DifficultyProvider = ({ children, initialSettings, userId }) => {
     </DifficultyContext.Provider>
   );
 };
-
-/**
- * Gerenciador de dificuldade adaptativa para jogos
- * Implementa RNF-004 (dificuldade adaptativa)
- * 
- * @param {Object} initialSettings - Configurações iniciais de dificuldade
- * @param {string} userId - ID do usuário para persistir configurações
- */
-const useDifficultyManager = (initialSettings = {}, userId = null) => {
-  // Configurações padrão de dificuldade por categoria
-  const defaultSettings = {
-    global: {
-      level: 1,
-      maxLevel: 10,
-      autoAdjust: true,
-      timerDuration: 0, // 0 significa sem timer
-      visualComplexity: 'low', // 'low', 'medium', 'high'
-      audioVolume: 0.7,
-      reinforcementFrequency: 'high', // 'low', 'medium', 'high'
-    },
-    communication: {
-      level: 1,
-      maxLevel: 10,
-      vocabularySize: 10,
-      sentenceComplexity: 'simple',
-      conceptAbstraction: 'concrete',
-    },
-    emotions: {
-      level: 1,
-      maxLevel: 10,
-      emotionVariety: 4, // número de emoções trabalhadas
-      contextComplexity: 'simple',
-      subtletyLevel: 'obvious',
-    },
-    social: {
-      level: 1, 
-      maxLevel: 10,
-      interactionComplexity: 'one-on-one',
-      socialCuesVariety: 'basic',
-      decisionTimeLimit: 0, // sem limite de tempo
-    }
-  };
-
-  // Combina as configurações iniciais com as padrão
-  const combinedSettings = {
-    ...defaultSettings,
-    ...initialSettings
-  };
-
-  // Estado para as configurações atuais
-  const [settings, setSettings] = useState(combinedSettings);
-  
-  // Estado para o histórico de desempenho (usado para ajuste automático)
-  const [performanceHistory, setPerformanceHistory] = useState({
-    communication: [],
-    emotions: [],
-    social: []
-  });
-
-  // Carregar configurações salvas quando o componente montar
-  useEffect(() => {
-    if (userId) {
-      const savedSettings = loadSettings(userId);
-      if (savedSettings) {
-        setSettings(prevSettings => ({
-          ...prevSettings,
-          ...savedSettings
-        }));
-      }
-    }
-  }, [userId]);
-
-  // Salvar configurações quando houver mudanças
-  useEffect(() => {
-    if (userId) {
-      saveSettings(userId, settings);
-    }
-  }, [settings, userId]);
-
-  // Função para carregar configurações do localStorage
-  const loadSettings = (userId) => {
-    try {
-      const saved = localStorage.getItem(`difficulty_${userId}`);
-      return saved ? JSON.parse(saved) : null;
-    } catch (error) {
-      console.error("Erro ao carregar configurações de dificuldade:", error);
-      return null;
-    }
-  };
-
-  // Função para salvar configurações no localStorage
-  const saveSettings = (userId, settings) => {
-    try {
-      localStorage.setItem(`difficulty_${userId}`, JSON.stringify(settings));
-    } catch (error) {
-      console.error("Erro ao salvar configurações de dificuldade:", error);
-    }
-  };
-
-  // Função para atualizar uma configuração específica
-  const updateSetting = (category, key, value) => {
-    setSettings(prevSettings => ({
-      ...prevSettings,
-      [category]: {
-        ...prevSettings[category],
-        [key]: value
-      }
-    }));
-  };
-
-  // Função para registrar o desempenho do usuário
-  const recordPerformance = (category, score, totalPossible) => {
-    const performancePercent = (score / totalPossible) * 100;
-    
-    setPerformanceHistory(prev => ({
-      ...prev,
-      [category]: [...prev[category].slice(-9), performancePercent]
-    }));
-    
-    // Se o ajuste automático estiver ativado, ajusta a dificuldade baseada no desempenho
-    if (settings.global.autoAdjust) {
-      adjustDifficultyBasedOnPerformance(category, performancePercent);
-    }
-    
-    return performancePercent;
-  };
-
-  // Função para ajustar a dificuldade com base no desempenho
-  const adjustDifficultyBasedOnPerformance = (category, performancePercent) => {
-    // Obtém as últimas 3 performances (ou menos se não houver tantas)
-    const recentPerformances = performanceHistory[category].slice(-3);
-    const averagePerformance = recentPerformances.length > 0 
-      ? recentPerformances.reduce((sum, val) => sum + val, 0) / recentPerformances.length
-      : performancePercent;
-    
-    const currentLevel = settings[category].level;
-    const maxLevel = settings[category].maxLevel;
-    
-    // Regras para ajuste de dificuldade
-    if (averagePerformance >= 85 && currentLevel < maxLevel) {
-      // Excelente desempenho - aumenta o nível
-      updateSetting(category, 'level', currentLevel + 1);
-      
-      // Ajusta outros parâmetros baseados na categoria
-      adjustCategorySpecificParameters(category, currentLevel + 1);
-      
-      return 'increased';
-    } else if (averagePerformance <= 40 && currentLevel > 1) {
-      // Dificuldade muito alta - diminui o nível
-      updateSetting(category, 'level', currentLevel - 1);
-      
-      // Ajusta outros parâmetros baseados na categoria
-      adjustCategorySpecificParameters(category, currentLevel - 1);
-      
-      return 'decreased';
-    }
-    
-    return 'maintained';
-  };
-
-  // Função para ajustar parâmetros específicos de cada categoria com base no nível
-  const adjustCategorySpecificParameters = (category, level) => {
-    switch (category) {
-      case 'communication':
-        // Ajuste do tamanho do vocabulário baseado no nível
-        updateSetting(category, 'vocabularySize', 10 + (level - 1) * 5);
-        
-        // Ajuste da complexidade das frases
-        if (level <= 3) {
-          updateSetting(category, 'sentenceComplexity', 'simple');
-        } else if (level <= 7) {
-          updateSetting(category, 'sentenceComplexity', 'moderate');
-        } else {
-          updateSetting(category, 'sentenceComplexity', 'complex');
-        }
-        
-        // Ajuste do nível de abstração dos conceitos
-        if (level <= 4) {
-            updateSetting(category, 'conceptAbstraction', 'concrete');
-          } else if (level <= 7) {
-            updateSetting(category, 'conceptAbstraction', 'mixed');
-          } else {
-            updateSetting(category, 'conceptAbstraction', 'abstract');
-          }
-          break;
-          case 'emotions':
-            // Ajusta a variedade de emoções com base no nível
-            updateSetting(category, 'emotionVariety', 4 + (level - 1));
-    
-            // Ajuste da complexidade do contexto
-            if (level <= 3) {
-              updateSetting(category, 'contextComplexity', 'simple');
-            } else if (level <= 7) {
-              updateSetting(category, 'contextComplexity', 'moderate');
-            } else {
-              updateSetting(category, 'contextComplexity', 'complex');
-            }
-    
-            // Ajuste do nível de sutileza
-            if (level <= 4) {
-              updateSetting(category, 'subtletyLevel', 'obvious');
-            } else if (level <= 8) {
-              updateSetting(category, 'subtletyLevel', 'moderate');
-            } else {
-              updateSetting(category, 'subtletyLevel', 'subtle');
-            }
-            break;
-    
-          case 'social':
-            // Ajuste da complexidade da interação
-            if (level <= 3) {
-              updateSetting(category, 'interactionComplexity', 'one-on-one');
-            } else if (level <= 7) {
-              updateSetting(category, 'interactionComplexity', 'group');
-            } else {
-              updateSetting(category, 'interactionComplexity', 'dynamic-group');
-            }
-    
-            // Ajuste da variedade de pistas sociais
-            if (level <= 4) {
-              updateSetting(category, 'socialCuesVariety', 'basic');
-            } else if (level <= 8) {
-              updateSetting(category, 'socialCuesVariety', 'intermediate');
-            } else {
-              updateSetting(category, 'socialCuesVariety', 'advanced');
-            }
-    
-            // Ajuste do limite de tempo para decisões
-            updateSetting(category, 'decisionTimeLimit', level <= 3 ? 0 : 10 - Math.floor(level / 2));
-            break;
-    
-          default:
-            console.warn(`Categoria desconhecida: ${category}`);
-        }
-      };
-    
-      return {
-        settings,
-        updateSetting,
-        recordPerformance
-      };
-    };

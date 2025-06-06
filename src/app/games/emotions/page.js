@@ -1,194 +1,159 @@
-import { useState, useEffect, useRef } from 'react';
-import Head from 'next/head';
-import { useRouter } from 'next/navigation';
-import AccessibleButton from '../../components/AccessibleButton';
-import AudioFeedback from '../../components/AudioFeedback';
-import ProgressTracker from '../../components/ProgressTracker';
-import { useDifficulty } from '../../components/DifficultyManager';
+'use client';
 
-export default function EmotionsGame() {
-  const router = useRouter();
-  const { userId } = router.query;
-  const difficultyManager = useDifficulty();
+import React, { useEffect, useState } from 'react';
+import { DifficultyProvider, useDifficulty } from '@/components/DifficultyManager';
+import  {AudioFeedback, AudioFeedbackSpeak} from '@/components/AudioFeedback';
+import GuideCharacter from '@/components/GuideCharacter';
+import AccessibilityControls from '@/components/AccessibilityControls';
+import RewardAnimation from '@/components/RewardAnimation';
+import EmotionInstruction from '@/components/EmotionInstruction';
 
-  const [gameState, setGameState] = useState('intro');
-  const [currentScenario, setCurrentScenario] = useState(null);
-  const [selectedEmotion, setSelectedEmotion] = useState(null);
-  const [score, setScore] = useState(0);
-  const [totalAttempts, setTotalAttempts] = useState(0);
-  const [scenariosCompleted, setScenariosCompleted] = useState(0);
-  const [playSound, setPlaySound] = useState(false);
-  const [soundType, setSoundType] = useState('info');
-  const [scenariosPool, setScenariosPool] = useState([]);
-  const [settings, setSettings] = useState({
-    level: 1,
-    emotionVariety: 4,
-    contextComplexity: 'simple',
-    subtletyLevel: 'obvious',
-  });
+const allEmotions = [
+  { id: 1, image: '/images/happy.png', label: 'Feliz' },
+  { id: 2, image: '/images/sad.png', label: 'Triste' },
+  { id: 3, image: '/images/angry.jpg', label: 'Bravo' },
+  { id: 4, image: '/images/surprised.png', label: 'Surpreso' },
+  { id: 5, image: '/images/tired.png', label: 'Cansado' },     // Substituição
+  { id: 6, image: '/images/fear.png', label: 'Medo' }           // Novo item
+];
 
-  const narrationRef = useRef(null);
+function EmotionsGameScreen() {
+  const { settings, increaseDifficulty, decreaseDifficulty } = useDifficulty();
 
-  useEffect(() => {
-    if (difficultyManager) {
-      const emotionsSettings = difficultyManager.settings.emotions;
-      setSettings({
-        level: emotionsSettings.level,
-        emotionVariety: emotionsSettings.emotionVariety,
-        contextComplexity: emotionsSettings.contextComplexity,
-        subtletyLevel: emotionsSettings.subtletyLevel,
-      });
-    }
-  }, [difficultyManager]);
+  const [scenarios, setScenarios] = useState([]);
+  const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [expression, setExpression] = useState('neutral');
+  const [showReward, setShowReward] = useState(false);
+  const [instructionText, setInstructionText] = useState('');
+  const [firstLoad, setFirstLoad] = useState(true); // novo estado
+
+  const currentLevel = settings.emotions?.level ?? 0;
 
   useEffect(() => {
-    if (settings) {
-      const scenarios = generateScenarios(settings);
-      setScenariosPool(scenarios);
+    if (firstLoad) {
+      AudioFeedbackSpeak('Vamos jogar! Escolha a imagem que representa a emoção correta.');
+      setFirstLoad(false);
     }
-  }, [settings]);
+  }, [firstLoad]);
 
-  const startGame = () => {
-    setGameState('playing');
-    setScore(0);
-    setTotalAttempts(0);
-    setScenariosCompleted(0);
-    loadNextScenario();
+  const generateScenarios = () => {
+    const availableEmotions = [...allEmotions];
+    const correctEmotion = availableEmotions.splice(
+      Math.floor(Math.random() * availableEmotions.length),
+      1
+    )[0];
 
-    setSoundType('info');
-    setPlaySound(true);
-    setTimeout(() => setPlaySound(false), 1000);
-  };
+    const numOptions = Math.min(currentLevel + 2, allEmotions.length);
+    const distractors = availableEmotions.sort(() => 0.5 - Math.random()).slice(0, numOptions - 1);
+    const mixedScenarios = [...distractors, { ...correctEmotion, correct: true }]
+      .map(s => ({ ...s, correct: s.correct || false }))
+      .sort(() => 0.5 - Math.random());
 
-  const loadNextScenario = () => {
-    if (scenariosPool.length > 0) {
-      const randomIndex = Math.floor(Math.random() * scenariosPool.length);
-      const scenario = scenariosPool[randomIndex];
-      const updatedPool = [...scenariosPool];
-      updatedPool.splice(randomIndex, 1);
-      setScenariosPool(updatedPool);
-      setCurrentScenario(scenario);
-      setSelectedEmotion(null);
-      setGameState('playing');
-    } else {
-      setGameState('complete');
-      setSoundType('achievement');
-      setPlaySound(true);
-      setTimeout(() => setPlaySound(false), 1500);
+    setScenarios(mixedScenarios);
 
-      if (difficultyManager) {
-        difficultyManager.recordPerformance('emotions', score, totalAttempts);
-      }
+    const newInstruction = `Escolha a imagem que representa a emoção "${correctEmotion.label}".`;
+    setInstructionText(newInstruction);
+
+    // Só fala instrução se não for a primeira vez (para evitar sobreposição com "Vamos jogar")
+    if (!firstLoad) {
+      AudioFeedbackSpeak(newInstruction);
     }
   };
 
-  const generateScenarios = (settings) => {
-    const emotions = [
-      { id: 'happy', name: 'Feliz', icon: '😊', color: 'bg-yellow-200' },
-      { id: 'sad', name: 'Triste', icon: '😢', color: 'bg-blue-200' },
-      { id: 'angry', name: 'Bravo', icon: '😠', color: 'bg-red-200' },
-      { id: 'scared', name: 'Assustado', icon: '😨', color: 'bg-purple-200' },
-      { id: 'surprised', name: 'Surpreso', icon: '😲', color: 'bg-green-200' },
-      { id: 'disgusted', name: 'Enojado', icon: '🤢', color: 'bg-emerald-200' },
-      { id: 'calm', name: 'Calmo', icon: '😌', color: 'bg-blue-100' },
-      { id: 'proud', name: 'Orgulhoso', icon: '😎', color: 'bg-amber-200' },
-      { id: 'jealous', name: 'Ciumento', icon: '😒', color: 'bg-lime-200' },
-      { id: 'confused', name: 'Confuso', icon: '😕', color: 'bg-gray-200' },
-      { id: 'worried', name: 'Preocupado', icon: '😟', color: 'bg-slate-200' },
-      { id: 'shy', name: 'Tímido', icon: '😳', color: 'bg-rose-200' },
-      { id: 'disappointed', name: 'Decepcionado', icon: '😞', color: 'bg-zinc-200' }
-    ];
+  useEffect(() => {
+    generateScenarios();
+  }, [currentLevel]);
 
-    const availableEmotions = emotions.slice(0, Math.min(settings.emotionVariety, emotions.length));
+  // ... restante do componente permanece igual ...
 
-    const scenarios = {
-      simple: [
-        { id: 's1', description: 'Seu amigo te deu um presente de aniversário', emotion: 'happy', image: '/images/emotions/birthday_gift.jpg' },
-        { id: 's2', description: 'Seu sorvete caiu no chão', emotion: 'sad', image: '/images/emotions/dropped_icecream.jpg' },
-        { id: 's3', description: 'Um amigo quebrou seu brinquedo favorito', emotion: 'angry', image: '/images/emotions/broken_toy.jpg' },
-        { id: 's4', description: 'Você ouviu um barulho forte durante a noite', emotion: 'scared', image: '/images/emotions/night_noise.jpg' },
-        { id: 's5', description: 'Sua amiga te convidou para brincar', emotion: 'happy', image: '/images/emotions/play_invite.jpg' }
-      ],
-      moderate: [
-        { id: 'm1', description: 'Você ganhou um concurso na escola', emotion: 'proud', image: '/images/emotions/contest_winner.jpg' },
-        { id: 'm2', description: 'Você viu uma aranha grande no banheiro', emotion: 'scared', image: '/images/emotions/spider.jpg' },
-        { id: 'm3', description: 'Seu amigo ganhou o prêmio que você queria', emotion: 'jealous', image: '/images/emotions/friend_prize.jpg' },
-        { id: 'm4', description: 'Você não entendeu a lição da escola', emotion: 'confused', image: '/images/emotions/confusing_lesson.jpg' },
-        { id: 'm5', description: 'Você vai fazer uma apresentação na frente da turma', emotion: 'worried', image: '/images/emotions/class_presentation.jpg' }
-      ],
-      complex: [
-        { id: 'c1', description: 'Seu amigo disse que iria ao seu aniversário mas não foi', emotion: 'sad', image: '/images/emotions/missed_birthday.jpg' },
-        { id: 'c2', description: 'Você não foi convidado para a festa onde todos estão falando', emotion: 'jealous', image: '/images/emotions/no_invitation.jpg' },
-        { id: 'c3', description: 'Você fez um projeto incrível mas ninguém parece notar', emotion: 'disappointed', image: '/images/emotions/unnoticed_project.jpg' },
-        { id: 'c4', description: 'Alguém te elogiou na frente de muitas pessoas', emotion: 'shy', image: '/images/emotions/public_praise.jpg' },
-        { id: 'c5', description: 'Seu amigo parece triste e você não sabe como ajudar', emotion: 'worried', image: '/images/emotions/sad_friend.jpg' }
-      ]
-    };
 
-    const selectedScenarios = [...scenarios[settings.contextComplexity]];
 
-    const scenariosWithOptions = selectedScenarios.map(scenario => {
-      const correctEmotion = emotions.find(e => e.id === scenario.emotion);
-      let options = [correctEmotion];
-
-      while (options.length < 4) {
-        const randomEmotion = availableEmotions[Math.floor(Math.random() * availableEmotions.length)];
-        if (!options.find(e => e.id === randomEmotion.id)) {
-          options.push(randomEmotion);
-        }
-      }
-
-      options = options.sort(() => Math.random() - 0.5);
-
-      return {
-        ...scenario,
-        options,
-        correctEmotionId: correctEmotion.id
-      };
-    });
-
-    return scenariosWithOptions;
-  };
-
-  const handleEmotionSelect = (emotionId) => {
-    setSelectedEmotion(emotionId);
-    setTotalAttempts(totalAttempts + 1);
-    const isCorrect = emotionId === currentScenario.correctEmotionId;
+  const handleSelectEmotion = (selected) => {
+    const isCorrect = selected.correct;
 
     if (isCorrect) {
-      setScore(score + 1);
-      setSoundType('success');
+      playFeedback('/sounds/correct.mp3');
+      setFeedbackMsg('Muito bem!');
+      setExpression('happy');
+      setShowReward(true);
+      increaseDifficulty('emotions');
     } else {
-      setSoundType('error');
+      playFeedback('/sounds/wrong.mp3');
+      setFeedbackMsg('Tente novamente!');
+      setExpression('sad');
+      decreaseDifficulty('emotions');
     }
-
-    setPlaySound(true);
-    setTimeout(() => setPlaySound(false), 1000);
-    setGameState('feedback');
 
     setTimeout(() => {
-      setScenariosCompleted(scenariosCompleted + 1);
-      loadNextScenario();
-    }, 3000);
-  };
-
-  const narrateScenario = () => {
-    if (narrationRef.current) {
-      narrationRef.current.play = true;
-    }
-  };
-
-  const handleBackClick = () => {
-    router.push('/dashboard');
+      setFeedbackMsg('');
+      setExpression('neutral');
+      setShowReward(false);
+      generateScenarios(); // Nova rodada
+    }, 2000);
   };
 
   return (
-    <>
-      <Head>
-        <title>Jogo de Emoções | Interact Joy</title>
-        <meta name="description" content="Aprenda a identificar e entender emoções" />
-      </Head>
-      {/* ... restante do componente permanece inalterado ... */}
-    </>
+    <main style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
+      <GuideCharacter expression={expression} />
+      <EmotionInstruction text={instructionText} />
+
+      <h1 style={{ textAlign: 'center' }}>Jogo das Emoções</h1>
+      <p style={{ textAlign: 'center' }}>{instructionText}</p>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: '1.5rem',
+          justifyContent: 'center',
+          marginTop: '2rem'
+        }}
+      >
+        {scenarios.map((scenario) => (
+          <button
+            key={scenario.id}
+            onClick={() => handleSelectEmotion(scenario)}
+            style={{
+              border: '2px solid #ccc',
+              borderRadius: '12px',
+              padding: '0.5rem',
+              backgroundColor: '#fff',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+            }}
+            aria-label={`Selecionar emoção ${scenario.label}`}
+            onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+            onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            <img
+              src={scenario.image}
+              alt={scenario.label}
+              style={{
+                width: '100%',
+                height: '150px',
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+            <p style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>{scenario.label}</p>
+          </button>
+        ))}
+      </div>
+
+      {feedbackMsg && (
+        <p style={{ fontSize: '1.5rem', textAlign: 'center', marginTop: '1.5rem' }}>{feedbackMsg}</p>
+      )}
+      {showReward && <RewardAnimation />}
+      <AccessibilityControls />
+    </main>
+  );
+}
+
+export default function EmotionsGame() {
+  return (
+    <DifficultyProvider userId="usuario123">
+      <EmotionsGameScreen />
+    </DifficultyProvider>
   );
 }
