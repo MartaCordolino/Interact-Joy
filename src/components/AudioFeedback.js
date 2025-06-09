@@ -95,8 +95,10 @@ const AudioFeedback = ({
         ref={audioRef}
         src={audioSrc}
         preload="auto"
-        aria-hidden="true"
+        aria-live="polite" 
+        aria-atomic="true"
       />
+
       {!autoPlay && (
         <button
           onClick={toggleAudio}

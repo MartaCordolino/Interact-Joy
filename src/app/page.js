@@ -5,6 +5,7 @@ import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { DifficultyProvider } from '@/components/DifficultyManager';
 
 export default function Welcome() {
   const router = useRouter();
@@ -42,7 +43,7 @@ export default function Welcome() {
 
   const handleContinueAsGuest = () => {
     localStorage.setItem('userType', 'guest');
-    router.push('/dashboard');
+    router.push('/dashboard/usuario');
   };
 
   const toggleAudio = () => {
@@ -166,7 +167,7 @@ export default function Welcome() {
           </Link>
           
           <Link
-            href="/register" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg text-center text-xl transition duration-300">
+            href="/register/select" className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg text-center text-xl transition duration-300">
             Criar Conta
           </Link>
           

@@ -1,159 +1,213 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState } from 'react';
-import { DifficultyProvider, useDifficulty } from '@/components/DifficultyManager';
-import  {AudioFeedback, AudioFeedbackSpeak} from '@/components/AudioFeedback';
-import GuideCharacter from '@/components/GuideCharacter';
-import AccessibilityControls from '@/components/AccessibilityControls';
-import RewardAnimation from '@/components/RewardAnimation';
-import EmotionInstruction from '@/components/EmotionInstruction';
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { useDifficulty, DifficultyProvider } from "@/components/DifficultyManager";
+import { Volume2 } from "lucide-react";
 
-const allEmotions = [
-  { id: 1, image: '/images/happy.png', label: 'Feliz' },
-  { id: 2, image: '/images/sad.png', label: 'Triste' },
-  { id: 3, image: '/images/angry.jpg', label: 'Bravo' },
-  { id: 4, image: '/images/surprised.png', label: 'Surpreso' },
-  { id: 5, image: '/images/tired.png', label: 'Cansado' },     // Substituição
-  { id: 6, image: '/images/fear.png', label: 'Medo' }           // Novo item
+// Dados do jogo
+const emotionsData = [
+  {
+    image: "/images/happy.png",
+    correct: "Feliz",
+    options: ["Triste", "Bravo", "Feliz", "Assustado"],
+  },
+  {
+    image: "/images/sad.png",
+    correct: "Triste",
+    options: ["Triste", "Animado", "Zangado", "Confuso"],
+  },
+  {
+    image: "/images/angry.png",
+    correct: "Bravo",
+    options: ["Feliz", "Bravo", "Cansado", "Assustado"],
+  },
+  {
+    image: "/images/tired.png",
+    correct: "Cansado",
+    options: ["Cansado", "Calmo", "Triste", "Animado"],
+  },
 ];
 
-function EmotionsGameScreen() {
-  const { settings, increaseDifficulty, decreaseDifficulty } = useDifficulty();
+// Função de leitura por voz
+const speak = (text) => {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "pt-BR";
+  speechSynthesis.speak(utterance);
+};
 
-  const [scenarios, setScenarios] = useState([]);
-  const [feedbackMsg, setFeedbackMsg] = useState('');
-  const [expression, setExpression] = useState('neutral');
-  const [showReward, setShowReward] = useState(false);
-  const [instructionText, setInstructionText] = useState('');
-  const [firstLoad, setFirstLoad] = useState(true); // novo estado
+function EmotionsGameCore() {
+  const { settings, recordPerformance } = useDifficulty();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [gameOver, setGameOver] = useState(false);
+  const [showContinueOptions, setShowContinueOptions] = useState(false);
 
-  const currentLevel = settings.emotions?.level ?? 0;
+  const currentEmotion = emotionsData[currentIndex];
 
   useEffect(() => {
-    if (firstLoad) {
-      AudioFeedbackSpeak('Vamos jogar! Escolha a imagem que representa a emoção correta.');
-      setFirstLoad(false);
+    if (!gameOver && !showFeedback) {
+      speak("Qual é essa emoção?");
     }
-  }, [firstLoad]);
+  }, [currentIndex, gameOver]);
 
-  const generateScenarios = () => {
-    const availableEmotions = [...allEmotions];
-    const correctEmotion = availableEmotions.splice(
-      Math.floor(Math.random() * availableEmotions.length),
-      1
-    )[0];
+  const handleSelectEmotion = (selected) => {
+    if (showFeedback || gameOver) return;
+    const isCorrect = selected === currentEmotion.correct;
 
-    const numOptions = Math.min(currentLevel + 2, allEmotions.length);
-    const distractors = availableEmotions.sort(() => 0.5 - Math.random()).slice(0, numOptions - 1);
-    const mixedScenarios = [...distractors, { ...correctEmotion, correct: true }]
-      .map(s => ({ ...s, correct: s.correct || false }))
-      .sort(() => 0.5 - Math.random());
+    if (isCorrect) {
+      setScore((prev) => prev + 1);
+      setFeedbackText("Correto! Muito bem!");
+      speak("Correto! Muito bem!");
+    } else {
+      const texto = `Ops! Era ${currentEmotion.correct}`;
+      setFeedbackText(texto);
+      speak(texto);
+    }
 
-    setScenarios(mixedScenarios);
+    setShowFeedback(true);
+    setTimeout(() => {
+      setShowFeedback(false);
+      setShowContinueOptions(true);
+    }, 1000);
+  };
 
-    const newInstruction = `Escolha a imagem que representa a emoção "${correctEmotion.label}".`;
-    setInstructionText(newInstruction);
-
-    // Só fala instrução se não for a primeira vez (para evitar sobreposição com "Vamos jogar")
-    if (!firstLoad) {
-      AudioFeedbackSpeak(newInstruction);
+  const handleNext = () => {
+    const nextIndex = currentIndex + 1;
+    if (nextIndex >= emotionsData.length) {
+      setGameOver(true);
+      recordPerformance("emotions", score, emotionsData.length);
+      speak(`Você acertou ${score} de ${emotionsData.length} emoções.`);
+    } else {
+      setCurrentIndex(nextIndex);
+      setShowContinueOptions(false);
     }
   };
 
-  useEffect(() => {
-    generateScenarios();
-  }, [currentLevel]);
-
-  // ... restante do componente permanece igual ...
-
-
-
-  const handleSelectEmotion = (selected) => {
-    const isCorrect = selected.correct;
-
-    if (isCorrect) {
-      playFeedback('/sounds/correct.mp3');
-      setFeedbackMsg('Muito bem!');
-      setExpression('happy');
-      setShowReward(true);
-      increaseDifficulty('emotions');
-    } else {
-      playFeedback('/sounds/wrong.mp3');
-      setFeedbackMsg('Tente novamente!');
-      setExpression('sad');
-      decreaseDifficulty('emotions');
-    }
-
-    setTimeout(() => {
-      setFeedbackMsg('');
-      setExpression('neutral');
-      setShowReward(false);
-      generateScenarios(); // Nova rodada
-    }, 2000);
+  const handleRestart = () => {
+    setCurrentIndex(0);
+    setScore(0);
+    setGameOver(false);
+    setShowContinueOptions(false);
   };
 
   return (
-    <main style={{ padding: '2rem', maxWidth: '960px', margin: '0 auto' }}>
-      <GuideCharacter expression={expression} />
-      <EmotionInstruction text={instructionText} />
+    <div className="min-h-screen bg-blue-50 pb-10">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-400 to-purple-500 p-4 flex justify-between items-center shadow-md">
+        <div className="flex items-left space-x-4 animate-spin-slow">
+          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={100} height={100} />
+        </div>
+        <div className="flex-1 text-left">  
+          <h1 className="text-3xl flex space-x-1">
+            <span className='bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">'>
+              Interact 
+            </span>
+            <span className='text-lime-400'>
+              Joy
+            </span>
+          </h1>
+        </div>
+        <button
+          onClick={() => speak("Este é o jogo de emoções. Você deve identificar a emoção correta.")}
+          className="text-blue-700 hover:text-blue-900"
+          aria-label="Ajuda de acessibilidade"
+        >
+          <Volume2 size={28} />
+        </button>
+      </header>
 
-      <h1 style={{ textAlign: 'center' }}>Jogo das Emoções</h1>
-      <p style={{ textAlign: 'center' }}>{instructionText}</p>
+      <div className="flex flex-col items-center justify-center text-center mt-8 px-4">
+        <h2 className="text-3xl font-bold mb-2 text-blue-900">Identifique a Emoção</h2>
+        <p className="text-purple-800 text-6x1 font-bold  mb-6">Jogo: Emoções</p>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-          gap: '1.5rem',
-          justifyContent: 'center',
-          marginTop: '2rem'
-        }}
-      >
-        {scenarios.map((scenario) => (
-          <button
-            key={scenario.id}
-            onClick={() => handleSelectEmotion(scenario)}
-            style={{
-              border: '2px solid #ccc',
-              borderRadius: '12px',
-              padding: '0.5rem',
-              backgroundColor: '#fff',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-            }}
-            aria-label={`Selecionar emoção ${scenario.label}`}
-            onMouseOver={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-            onMouseOut={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-          >
-            <img
-              src={scenario.image}
-              alt={scenario.label}
-              style={{
-                width: '100%',
-                height: '150px',
-                objectFit: 'contain',
-                borderRadius: '8px'
-              }}
-            />
-            <p style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>{scenario.label}</p>
-          </button>
-        ))}
+        {gameOver ? (
+          <div className="bg-white p-6 rounded-2xl shadow-xl">
+            <p className="text-xl font-semibold mb-2">Parabéns!</p>
+            <p className="mb-4">Você acertou {score} de {emotionsData.length} emoções.</p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={handleRestart}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl"
+              >
+                Jogar novamente
+              </button>
+              <Link href="/dashboard/usuario" className="text-blue-600 text-base pt-2">
+              Voltar
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-xl p-4 max-w-md w-full">
+            <div className="flex justify-center mb-4">
+              <Image
+                src={currentEmotion.image}
+                alt="Expressão emocional"
+                width={200}
+                height={200}
+                className="rounded"
+              />
+            </div>
+
+            {showFeedback && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-lg font-medium text-blue-800 mb-2"
+              >
+                {feedbackText}
+              </motion.div>
+            )}
+
+            {!showContinueOptions ? (
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {currentEmotion.options.map((option, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectEmotion(option)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 mt-4">
+                <button
+                  onClick={handleNext}
+                  className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl"
+                >
+                  Próxima emoção
+                </button>
+                <button
+                  onClick={handleRestart}
+                  className=" text-3x1 font-bold border border-gray-400 text-blue-800 py-2 px-4 rounded-xl hover:bg-blue-100"
+                >
+                  Reiniciar
+                </button>
+                <Link href="/dashboard/usuario" className="text-blue-600 font-bold underline text-base">
+                  Voltar
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {feedbackMsg && (
-        <p style={{ fontSize: '1.5rem', textAlign: 'center', marginTop: '1.5rem' }}>{feedbackMsg}</p>
-      )}
-      {showReward && <RewardAnimation />}
-      <AccessibilityControls />
-    </main>
+    </div>
   );
 }
 
-export default function EmotionsGame() {
+// Componente principal com provider
+export default function EmotionsGamePage() {
+  const mockUserId = "usuario_teste_001"; // Substituir por ID real se disponível
+
   return (
-    <DifficultyProvider userId="usuario123">
-      <EmotionsGameScreen />
+    <DifficultyProvider userId={mockUserId}>
+      <EmotionsGameCore />
     </DifficultyProvider>
   );
 }

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import AccessibleButton from '../components/AccessibleButton';
-import AudioFeedback from '../components/AudioFeedback';
-import ProgressTracker from '../components/ProgressTracker';
+import AccessibleButton from '@/components/AccessibleButton';
+import AudioFeedback from '@/components/AudioFeedback';
+import ProgressTracker from '@/components/ProgressTracker';
 
 export default function Achievements() {
   const router = useRouter();

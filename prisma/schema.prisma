@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model conquistas {
+  id             Int      @id @default(autoincrement())
+  id_crianca     Int
+  id_jogo        Int
+  tipo           String?  @db.VarChar(50)
+  descricao      String?  @db.Text
+  data_conquista DateTime @default(now()) @db.Timestamp(0)
+  criancas       criancas @relation(fields: [id_crianca], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "conquistas_ibfk_1")
+  jogos          jogos    @relation(fields: [id_jogo], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "conquistas_ibfk_2")
+
+  @@index([id_crianca], map: "id_crianca")
+  @@index([id_jogo], map: "id_jogo")
+}
+
+model criancas {
+  id             Int          @id @default(autoincrement())
+  nome           String       @db.VarChar(100)
+  idade          Int
+  id_responsavel Int
+  created_at     DateTime     @default(now()) @db.Timestamp(0)
+  conquistas     conquistas[]
+  usuarios       usuarios     @relation(fields: [id_responsavel], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "criancas_ibfk_1")
+  progresso      progresso[]
+
+  @@index([id_responsavel], map: "id_responsavel")
+}
+
+model jogos {
+  id         Int          @id @default(autoincrement())
+  nome       String       @db.VarChar(100)
+  categoria  String?      @db.VarChar(50)
+  url_path   String?      @db.VarChar(100)
+  conquistas conquistas[]
+  progresso  progresso[]
+}
+
+model planos_assinatura {
+  id         Int                    @id @default(autoincrement())
+  usuario_id Int                    @unique(map: "usuario_id")
+  tipo       planos_assinatura_tipo
+  ativo      Boolean?               @default(true)
+  inicio     DateTime               @default(now()) @db.Timestamp(0)
+  fim        DateTime?              @db.Timestamp(0)
+  usuarios   usuarios               @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "planos_assinatura_ibfk_1")
+}
+
+model progresso {
+  id            Int      @id @default(autoincrement())
+  id_crianca    Int
+  id_jogo       Int
+  porcentagem   Int?     @default(0)
+  tentativas    Int?     @default(0)
+  ultimo_acesso DateTime @default(now()) @db.Timestamp(0)
+  criancas      criancas @relation(fields: [id_crianca], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "progresso_ibfk_1")
+  jogos         jogos    @relation(fields: [id_jogo], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "progresso_ibfk_2")
+
+  @@index([id_crianca], map: "id_crianca")
+  @@index([id_jogo], map: "id_jogo")
+}
+
+model usuarios {
+  id                Int                @id @default(autoincrement())
+  nome              String             @db.VarChar(100)
+  email             String             @unique(map: "email") @db.VarChar(100)
+  senha             String             @db.VarChar(255)
+  perfil            usuarios_perfil
+  created_at        DateTime           @default(now()) @db.Timestamp(0)
+  criancas          criancas[]
+  planos_assinatura planos_assinatura?
+}
+
+enum planos_assinatura_tipo {
+  mensal
+  anual
+}
+
+enum usuarios_perfil {
+  autista
+  responsavel
+  especialista
+}

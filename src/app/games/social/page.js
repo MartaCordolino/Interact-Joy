@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import RewardAnimation from '@/components/RewardAnimation';
 import AccessibilityControls from '@/components/AccessibilityControls';
+import Image from 'next/image';
 
 /**
  * Página de jogos sociais para desenvolver habilidades sociais

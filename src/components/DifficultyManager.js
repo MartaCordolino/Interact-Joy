@@ -1,11 +1,4 @@
-import {
-  useState,
-  useEffect,
-  useCallback,
-  createContext,
-  useContext,
-  useMemo,
-} from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, useMemo } from 'react';
 
 // Cria o contexto de dificuldade
 const DifficultyContext = createContext();
@@ -21,7 +14,7 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
       visualComplexity: 'low',
       audioVolume: 0.7,
       reinforcementFrequency: 'high',
-      allowRepeatInstruction: true, // Novo: controle do botão repetir
+      allowRepeatInstruction: true,
     },
     communication: {
       level: 1,
@@ -29,7 +22,7 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
       vocabularySize: 10,
       sentenceComplexity: 'simple',
       conceptAbstraction: 'concrete',
-      instructionComplexity: 'basic', // Novo
+      instructionComplexity: 'basic',
     },
     emotions: {
       level: 1,
@@ -37,7 +30,7 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
       emotionVariety: 4,
       contextComplexity: 'simple',
       subtletyLevel: 'obvious',
-      instructionComplexity: 'basic', // Novo
+      instructionComplexity: 'basic',
     },
     social: {
       level: 1,
@@ -45,7 +38,7 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
       interactionComplexity: 'one-on-one',
       socialCuesVariety: 'basic',
       decisionTimeLimit: 0,
-      instructionComplexity: 'basic', // Novo
+      instructionComplexity: 'basic',
     },
   };
 
@@ -158,9 +151,29 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
         console.warn(`Categoria desconhecida: ${category}`);
     }
 
-    // Ajuste global relacionado à repetição de instruções
     updateSetting('global', 'allowRepeatInstruction', level <= 4);
   }, [updateSetting]);
+
+  const increaseDifficulty = useCallback((category) => {
+    const currentLevel = settings[category].level;
+    const maxLevel = settings[category].maxLevel;
+
+    if (currentLevel < maxLevel) {
+      const newLevel = currentLevel + 1;
+      updateSetting(category, 'level', newLevel);
+      adjustCategorySpecificParameters(category, newLevel);
+    }
+  }, [settings, updateSetting, adjustCategorySpecificParameters]);
+
+  const decreaseDifficulty = useCallback((category) => {
+    const currentLevel = settings[category].level;
+
+    if (currentLevel > 1) {
+      const newLevel = currentLevel - 1;
+      updateSetting(category, 'level', newLevel);
+      adjustCategorySpecificParameters(category, newLevel);
+    }
+  }, [settings, updateSetting, adjustCategorySpecificParameters]);
 
   const adjustDifficultyBasedOnPerformance = useCallback((category, performancePercent) => {
     const recent = performanceHistory[category].slice(-3);
@@ -205,10 +218,11 @@ const useDifficultyManager = (initialSettings = {}, userId = null) => {
     settings,
     updateSetting,
     recordPerformance,
-  }), [settings, updateSetting, recordPerformance]);
+    increaseDifficulty,
+    decreaseDifficulty,
+  }), [settings, updateSetting, recordPerformance, increaseDifficulty, decreaseDifficulty]);
 };
 
-// Hook personalizado para acessar o contexto
 export const useDifficulty = () => {
   const context = useContext(DifficultyContext);
   if (!context) {
@@ -217,7 +231,6 @@ export const useDifficulty = () => {
   return context;
 };
 
-// Componente provedor do contexto de dificuldade
 export const DifficultyProvider = ({ children, initialSettings = {}, userId = null }) => {
   const value = useDifficultyManager(initialSettings, userId);
   return (
