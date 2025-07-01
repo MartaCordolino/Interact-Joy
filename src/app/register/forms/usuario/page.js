@@ -1,23 +1,44 @@
-'use client';
 
+// src/app/register/forms/usuario/page.js
+'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Head from 'next/head';
 import Image from 'next/image';
 import AccessibilityControls from '@/components/AccessibilityControls';
 
-export default function UsuarioRegister() {
+export default function UsuarioRegister({ onSubmit, context = 'registro' }) {
   const router = useRouter();
   const [form, setForm] = useState({
     nome: '',
+    idade: '',
     email: '',
     senha: '',
     confirmarSenha: '',
+    nivelSuporte: '',
     aceitarTermos: false
   });
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [enviando, setEnviando] = useState(false);
+
+  const limparCampos = () => {
+    setForm({
+      nome: '',
+      idade: '',
+      email: '',
+      senha: '',
+      confirmarSenha: '',
+      nivelSuporte: '',
+      aceitarTermos: false
+    });
+  };
+
+  const exibirErro = (mensagem) => {
+    setErro(mensagem);
+    limparCampos();
+    setTimeout(() => setErro(''), 4000);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -32,14 +53,19 @@ export default function UsuarioRegister() {
     setErro('');
     setSucesso(false);
 
-    if (!form.nome || !form.email || !form.senha || !form.confirmarSenha) {
-      return setErro('Preencha todos os campos obrigatórios.');
+    const idade = parseInt(form.idade);
+    if (!form.nome || !form.idade || !form.email || !form.senha || !form.confirmarSenha || !form.nivelSuporte) {
+      return exibirErro('Preencha todos os campos obrigatórios.');
     }
     if (form.senha !== form.confirmarSenha) {
-      return setErro('As senhas não coincidem.');
+      return exibirErro('As senhas não coincidem.');
     }
-    if (!form.aceitarTermos) {
-      return setErro('Você precisa aceitar os termos de uso.');
+    if (idade < 7 || idade > 12) {
+      return exibirErro('A idade deve estar entre 7 e 12 anos.');
+    }
+
+    if (context === 'registro' && !form.aceitarTermos) {
+      return exibirErro('Você precisa aceitar os termos de uso.');
     }
 
     setEnviando(true);
@@ -49,22 +75,28 @@ export default function UsuarioRegister() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome: form.nome,
+          nome: form.nome.toUpperCase(),
+          idade,
           email: form.email,
           senha: form.senha,
+          nivelSuporte: form.nivelSuporte,
           perfil: 'autista'
         })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Erro ao cadastrar');
+      if (!response.ok) throw new Error(data.error || 'Erro ao cadastrar.');
 
       setSucesso(true);
-      setTimeout(() => {
-        router.push('/login');
-      }, 1800);
+      if (onSubmit) {
+        onSubmit(); // usado por especialista ou responsável
+      } else {
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      }
     } catch (err) {
-      setErro(err.message);
+      exibirErro(err.message);
     } finally {
       setEnviando(false);
     }
@@ -72,109 +104,144 @@ export default function UsuarioRegister() {
 
   return (
     <div className="min-h-screen bg-blue-50 p-6">
-      <Head>
-        <title>Cadastrar como Usuário - Interact Joy</title>
-      </Head>
+      <Head><title>Cadastro - Usuário | Interact Joy</title></Head>
 
       <AccessibilityControls />
 
-      <div className="flex flex-col items-center mb-6">
-        <Image
-          src="/images/Logo_Interact_Joy.png"
-          alt="Logo Interact Joy"
-          width={100}
-          height={100}
-          className="animate-spin-slow mb-2"
-        />
-        <h1 className="text-2xl font-bold text-blue-800">Interact Joy</h1>
-      </div>
+      <header className="flex items-center justify-center mb-8 gap-4">
+        <div className="w-16 h-16 animate-spin-slow">
+          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={64} height={64} />
+        </div>
+        <h1 className="text-3xl font-bold">
+          <span className="text-blue-700">Interact</span>{' '}
+          <span className="text-green-600">Joy</span>
+        </h1>
+      </header>
 
       <div className="max-w-lg mx-auto bg-white p-6 rounded shadow">
         <h2 className="text-2xl font-bold text-center text-blue-800 mb-4">
-          Cadastro - Usuário
+          Cadastro - Usuário (Criança)
         </h2>
 
-        {erro && <p className="text-red-600 mb-4 text-center">{erro}</p>}
-        {sucesso && <p className="text-green-600 mb-4 text-center font-medium">Cadastro realizado com sucesso!</p>}
+        {erro && <p className="text-red-600 text-center mb-4">{erro}</p>}
+        {sucesso && <p className="text-green-600 text-center mb-4 font-medium">Cadastro realizado com sucesso!</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome completo</label>
+            <label className="block text-sm font-medium text-gray-700">Nome completo</label>
             <input
               type="text"
               name="nome"
-              id="nome"
-              placeholder="Digite seu nome completo"
               value={form.nome}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Digite o nome completo"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-2"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+            <label className="block text-sm font-medium text-gray-700">Idade</label>
+            <input
+              type="number"
+              name="idade"
+              value={form.idade}
+              onChange={handleChange}
+              placeholder="7 a 12 anos"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-2"
+              min={7}
+              max={12}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
             <input
               type="email"
               name="email"
-              id="email"
-              placeholder="seu@email.com"
               value={form.email}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="email@exemplo.com"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-2"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="senha" className="block text-sm font-medium text-gray-700">Senha</label>
+            <label className="block text-sm font-medium text-gray-700">Senha</label>
             <input
               type="password"
               name="senha"
-              id="senha"
-              placeholder="Mínimo 6 caracteres"
               value={form.senha}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Mínimo 6 caracteres"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-2"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="confirmarSenha" className="block text-sm font-medium text-gray-700">Confirmar Senha</label>
+            <label className="block text-sm font-medium text-gray-700">Confirmar senha</label>
             <input
               type="password"
               name="confirmarSenha"
-              id="confirmarSenha"
-              placeholder="Repita sua senha"
               value={form.confirmarSenha}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border border-gray-300 p-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Repita sua senha"
+              className="mt-1 block w-full rounded-md border border-gray-300 p-2"
               required
             />
           </div>
 
-          <div className="flex items-start">
-            <input
-              id="aceitarTermos"
-              name="aceitarTermos"
-              type="checkbox"
-              checked={form.aceitarTermos}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nível de suporte</label>
+            <select
+              name="nivelSuporte"
+              value={form.nivelSuporte}
               onChange={handleChange}
-              className="h-5 w-5 text-blue-600 rounded"
-            />
-            <label htmlFor="aceitarTermos" className="ml-2 text-sm text-gray-700">
-              Aceito os <a href="/termos" className="text-blue-600 underline">termos de uso</a>
-            </label>
+              className="block w-full border rounded-md p-2 border-gray-300"
+              required
+            >
+              <option value="">Selecione</option>
+              <option value="leve">Leve – apoio ocasional, maior autonomia</option>
+              <option value="moderado">Moderado – apoio frequente, dificuldades sociais</option>
+              <option value="intenso">Intenso – apoio constante, comunicação limitada</option>
+            </select>
           </div>
 
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
-          >
-            {enviando ? 'Enviando...' : 'Cadastrar'}
-          </button>
+          {context === 'registro' && (
+            <div className="flex items-start">
+              <input
+                id="aceitarTermos"
+                name="aceitarTermos"
+                type="checkbox"
+                checked={form.aceitarTermos}
+                onChange={handleChange}
+                className="h-5 w-5 text-blue-600 rounded"
+              />
+              <label htmlFor="aceitarTermos" className="ml-2 text-sm text-gray-700">
+                Aceito os <a href="/termos" className="text-blue-600 underline">termos de uso</a>
+              </label>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-4">
+            <button
+              type="button"
+              onClick={limparCampos}
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={enviando}
+              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+            >
+              {enviando ? 'Enviando...' : 'Cadastrar'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

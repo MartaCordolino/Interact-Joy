@@ -1,213 +1,188 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { useDifficulty, DifficultyProvider } from "@/components/DifficultyManager";
-import { Volume2 } from "lucide-react";
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import Head from 'next/head';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import AccessibilityControls from '@/components/AccessibilityControls';
+import AudioFeedback, { AudioFeedbackSpeak } from '@/components/AudioFeedback';
+import { salvarProgresso, salvarConquista } from '@/utils/persistencia';
+import { motion } from 'framer-motion';
 
-// Dados do jogo
 const emotionsData = [
   {
-    image: "/images/happy.png",
-    correct: "Feliz",
-    options: ["Triste", "Bravo", "Feliz", "Assustado"],
+    image: '/images/happy.png',
+    correct: 'Feliz',
+    options: ['Triste', 'Bravo', 'Feliz', 'Assustado']
   },
   {
-    image: "/images/sad.png",
-    correct: "Triste",
-    options: ["Triste", "Animado", "Zangado", "Confuso"],
+    image: '/images/sad.png',
+    correct: 'Triste',
+    options: ['Triste', 'Animado', 'Zangado', 'Confuso']
   },
   {
-    image: "/images/angry.png",
-    correct: "Bravo",
-    options: ["Feliz", "Bravo", "Cansado", "Assustado"],
+    image: '/images/angry.png',
+    correct: 'Bravo',
+    options: ['Feliz', 'Bravo', 'Cansado', 'Assustado']
   },
   {
-    image: "/images/tired.png",
-    correct: "Cansado",
-    options: ["Cansado", "Calmo", "Triste", "Animado"],
-  },
+    image: '/images/tired.png',
+    correct: 'Cansado',
+    options: ['Cansado', 'Calmo', 'Triste', 'Animado']
+  }
 ];
 
-// Função de leitura por voz
-const speak = (text) => {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "pt-BR";
-  speechSynthesis.speak(utterance);
-};
-
-function EmotionsGameCore() {
-  const { settings, recordPerformance } = useDifficulty();
+export default function EmotionsGame() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-  const [gameOver, setGameOver] = useState(false);
-  const [showContinueOptions, setShowContinueOptions] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [feedback, setFeedback] = useState('');
+  const [showResult, setShowResult] = useState(false);
+  const [isGameFinished, setIsGameFinished] = useState(false);
+  const [playInstruction, setPlayInstruction] = useState(true);
+  const [nomeCrianca, setNomeCrianca] = useState('jogador');
 
+  const router = useRouter();
   const currentEmotion = emotionsData[currentIndex];
 
   useEffect(() => {
-    if (!gameOver && !showFeedback) {
-      speak("Qual é essa emoção?");
+    if (typeof window !== 'undefined') {
+      const nomeCompleto = localStorage.getItem('userName') || 'jogador';
+      const primeiroNome = nomeCompleto.split(' ')[0];
+      setNomeCrianca(primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1).toLowerCase());
     }
-  }, [currentIndex, gameOver]);
+  }, []);
 
-  const handleSelectEmotion = (selected) => {
-    if (showFeedback || gameOver) return;
-    const isCorrect = selected === currentEmotion.correct;
+  useEffect(() => {
+    if (playInstruction) {
+      AudioFeedbackSpeak('Qual é essa emoção?');
+    }
+  }, [currentIndex, playInstruction]);
+
+  const handleOptionClick = (option) => {
+    if (selected !== null) return;
+
+    setSelected(option);
+    setPlayInstruction(false);
+
+    const isCorrect = option === currentEmotion.correct;
+    setFeedback(isCorrect ? 'Parabéns! Você acertou!' : `Ops! Era ${currentEmotion.correct}`);
+    AudioFeedbackSpeak(isCorrect ? 'Parabéns! Você acertou!' : `Ops! Era ${currentEmotion.correct}`);
 
     if (isCorrect) {
-      setScore((prev) => prev + 1);
-      setFeedbackText("Correto! Muito bem!");
-      speak("Correto! Muito bem!");
-    } else {
-      const texto = `Ops! Era ${currentEmotion.correct}`;
-      setFeedbackText(texto);
-      speak(texto);
+      setCorrectCount(prev => prev + 1);
     }
 
-    setShowFeedback(true);
     setTimeout(() => {
-      setShowFeedback(false);
-      setShowContinueOptions(true);
-    }, 1000);
-  };
+      if (currentIndex + 1 < emotionsData.length) {
+        setCurrentIndex(prev => prev + 1);
+        setSelected(null);
+        setFeedback('');
+        setPlayInstruction(true);
+      } else {
+        setShowResult(true);
+        setIsGameFinished(true);
 
-  const handleNext = () => {
-    const nextIndex = currentIndex + 1;
-    if (nextIndex >= emotionsData.length) {
-      setGameOver(true);
-      recordPerformance("emotions", score, emotionsData.length);
-      speak(`Você acertou ${score} de ${emotionsData.length} emoções.`);
-    } else {
-      setCurrentIndex(nextIndex);
-      setShowContinueOptions(false);
-    }
+        const porcentagem = Math.round(((correctCount + (isCorrect ? 1 : 0)) / emotionsData.length) * 100);
+        const criancaId = localStorage.getItem("userId");
+
+        if (criancaId) {
+          salvarProgresso({
+            id_crianca: parseInt(criancaId),
+            id_jogo: "emotions",
+            porcentagem,
+          });
+
+          if (porcentagem === 100) {
+            salvarConquista({
+              id_crianca: parseInt(criancaId),
+              id_jogo: "emotions",
+              tipo_conquista: "trofeu",
+              descricao: "Acertou todas as emoções!",
+            });
+          }
+        }
+      }
+    }, 2500);
   };
 
   const handleRestart = () => {
     setCurrentIndex(0);
-    setScore(0);
-    setGameOver(false);
-    setShowContinueOptions(false);
+    setSelected(null);
+    setCorrectCount(0);
+    setFeedback('');
+    setShowResult(false);
+    setIsGameFinished(false);
+    setPlayInstruction(true);
   };
 
   return (
-    <div className="min-h-screen bg-blue-50 pb-10">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-400 to-purple-500 p-4 flex justify-between items-center shadow-md">
-        <div className="flex items-left space-x-4 animate-spin-slow">
-          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={100} height={100} />
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4 text-center">
+      <header className="flex justify-between items-center mb-4">
+        <Link href="/dashboard/usuario" className="text-blue-700 hover:underline ml-2">← Voltar</Link>
+        <div className="flex items-center gap-3">
+          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={60} height={60} className="animate-spin-slow" />
+          <h1 className="text-xl font-bold text-blue-800">Olá, {nomeCrianca}!</h1>
         </div>
-        <div className="flex-1 text-left">  
-          <h1 className="text-3xl flex space-x-1">
-            <span className='bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">'>
-              Interact 
-            </span>
-            <span className='text-lime-400'>
-              Joy
-            </span>
-          </h1>
-        </div>
-        <button
-          onClick={() => speak("Este é o jogo de emoções. Você deve identificar a emoção correta.")}
-          className="text-blue-700 hover:text-blue-900"
-          aria-label="Ajuda de acessibilidade"
-        >
-          <Volume2 size={28} />
-        </button>
+        <AudioFeedback type="instruction" autoPlay={false} />
       </header>
 
-      <div className="flex flex-col items-center justify-center text-center mt-8 px-4">
-        <h2 className="text-3xl font-bold mb-2 text-blue-900">Identifique a Emoção</h2>
-        <p className="text-purple-800 text-6x1 font-bold  mb-6">Jogo: Emoções</p>
-
-        {gameOver ? (
-          <div className="bg-white p-6 rounded-2xl shadow-xl">
-            <p className="text-xl font-semibold mb-2">Parabéns!</p>
-            <p className="mb-4">Você acertou {score} de {emotionsData.length} emoções.</p>
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={handleRestart}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl"
-              >
-                Jogar novamente
-              </button>
-              <Link href="/dashboard/usuario" className="text-blue-600 text-base pt-2">
-              Voltar
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl shadow-xl p-4 max-w-md w-full">
-            <div className="flex justify-center mb-4">
-              <Image
-                src={currentEmotion.image}
-                alt="Expressão emocional"
-                width={200}
-                height={200}
-                className="rounded"
-              />
+      {!showResult ? (
+        <div>
+          <h2 className="text-2xl font-semibold text-purple-700 mb-4">Jogo das Emoções</h2>
+          <div className="max-w-sm mx-auto">
+            <Image src={currentEmotion.image} alt="Expressão" width={200} height={200} className="mx-auto mb-4 rounded-xl shadow-md" />
+            <div className="grid grid-cols-2 gap-4">
+              {currentEmotion.options.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleOptionClick(option)}
+                  className={`py-3 px-4 rounded-xl text-white text-lg font-medium transition-all duration-300 focus:outline-none ${
+                    selected === option
+                      ? option === currentEmotion.correct
+                        ? 'bg-green-500 scale-105'
+                        : 'bg-red-500 scale-105'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
             </div>
 
-            {showFeedback && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-lg font-medium text-blue-800 mb-2"
-              >
-                {feedbackText}
-              </motion.div>
-            )}
-
-            {!showContinueOptions ? (
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                {currentEmotion.options.map((option, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectEmotion(option)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-xl"
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 mt-4">
-                <button
-                  onClick={handleNext}
-                  className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl"
-                >
-                  Próxima emoção
-                </button>
-                <button
-                  onClick={handleRestart}
-                  className=" text-3x1 font-bold border border-gray-400 text-blue-800 py-2 px-4 rounded-xl hover:bg-blue-100"
-                >
-                  Reiniciar
-                </button>
-                <Link href="/dashboard/usuario" className="text-blue-600 font-bold underline text-base">
-                  Voltar
-                </Link>
-              </div>
-            )}
+            {feedback && <p className="mt-6 text-lg text-gray-800 font-semibold">{feedback}</p>}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="mt-10">
+          <h2 className="text-2xl font-bold text-green-600">Fim do jogo!</h2>
+          <p className="text-lg mt-2">Você acertou {correctCount} de {emotionsData.length} emoções.</p>
+
+          {correctCount === emotionsData.length && (
+            <motion.div
+              className="mt-6 text-3xl text-yellow-500"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.8 }}
+            >
+              🏆 Parabéns! Você acertou todas as emoções!
+            </motion.div>
+          )}
+
+          <div className="mt-6 flex flex-col gap-3 items-center">
+            <button
+              onClick={handleRestart}
+              className="bg-purple-600 text-white py-2 px-6 rounded-xl hover:bg-purple-700"
+            >
+              Jogar Novamente
+            </button>
+            <Link href="/dashboard/usuario" className="text-blue-700 hover:underline">
+              Voltar ao painel
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
-  );
-}
-
-// Componente principal com provider
-export default function EmotionsGamePage() {
-  const mockUserId = "usuario_teste_001"; // Substituir por ID real se disponível
-
-  return (
-    <DifficultyProvider userId={mockUserId}>
-      <EmotionsGameCore />
-    </DifficultyProvider>
   );
 }

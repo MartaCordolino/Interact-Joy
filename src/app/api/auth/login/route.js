@@ -1,6 +1,8 @@
+// src/app/api/auth/login/route.js
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import { compararSenha } from '@/utils/auth';
 
 export async function POST(request) {
   try {
@@ -14,7 +16,8 @@ export async function POST(request) {
     }
 
     const usuario = await prisma.usuarios.findUnique({
-      where: { email }
+      where: { email },
+      include: { planos_assinatura: true },
     });
 
     if (!usuario) {
@@ -24,7 +27,7 @@ export async function POST(request) {
       );
     }
 
-    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    const senhaValida = await compararSenha(senha, usuario.senha);
     if (!senhaValida) {
       return NextResponse.json(
         { error: 'Senha incorreta.' },
@@ -32,7 +35,18 @@ export async function POST(request) {
       );
     }
 
-    // Aqui você pode implementar geração de token ou sessão, se desejar
+    const planoAtivo = usuario.planos_assinatura?.ativo === true;
+
+    // Bloco simplificado para perfis autistas
+    let dadosAutista = null;
+    if (usuario.perfil === 'autista') {
+      dadosAutista = {
+        criancaId: usuario.id,
+        idade: usuario.idade ?? null,
+        faixa_etaria: usuario.faixa_etaria ?? null,
+        nivel_suporte: usuario.nivel_suporte ?? null,
+      };
+    }
 
     return NextResponse.json(
       {
@@ -41,8 +55,10 @@ export async function POST(request) {
           id: usuario.id,
           nome: usuario.nome,
           email: usuario.email,
-          perfil: usuario.perfil
-        }
+          perfil: usuario.perfil,
+          planoAtivo,
+          ...dadosAutista, // será ignorado se for null
+        },
       },
       { status: 200 }
     );

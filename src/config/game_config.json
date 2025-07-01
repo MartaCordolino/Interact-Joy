@@ -1,0 +1,34 @@
+{
+  "7-9": {
+    "leve": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "communication", "title": "Jogo: Comunicação", "order": 2, "unlocked": false },
+      { "id": "colors", "title": "Jogo: Cores", "order": 3, "unlocked": false }
+    ],
+    "moderado": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "social", "title": "Jogo: Social", "order": 2, "unlocked": false },
+      { "id": "sequence", "title": "Jogo: Sequência", "order": 3, "unlocked": false }
+    ],
+    "intenso": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "puzzle", "title": "Jogo: Quebra-Cabeça", "order": 2, "unlocked": false }
+    ]
+  },
+  "10-12": {
+    "leve": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "communication", "title": "Jogo: Comunicação", "order": 2, "unlocked": false },
+      { "id": "colors", "title": "Jogo: Cores", "order": 3, "unlocked": false }
+    ],
+    "moderado": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "social", "title": "Jogo: Social", "order": 2, "unlocked": false },
+      { "id": "sequence", "title": "Jogo: Sequência", "order": 3, "unlocked": false }
+    ],
+    "intenso": [
+      { "id": "emotions", "title": "Jogo: Emoções", "order": 1, "unlocked": true },
+      { "id": "puzzle", "title": "Jogo: Quebra-Cabeça", "order": 2, "unlocked": false }
+    ]
+  }
+}

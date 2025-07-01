@@ -1,187 +1,203 @@
+// Código atualizado do formulário de cadastro do responsável com melhorias visuais e nome em maiúsculas
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Head from 'next/head';
+import Link from 'next/link';
 import Image from 'next/image';
 import AccessibilityControls from '@/components/AccessibilityControls';
+import { Eye, EyeOff } from 'lucide-react';
 
-export default function CadastroResponsavel() {
+export default function RegisterResponsavel() {
   const router = useRouter();
-  const [form, setForm] = useState({
+  const [formData, setFormData] = useState({
     nome: '',
     email: '',
     senha: '',
+    cpf: '',
     confirmarSenha: '',
-    aceitarTermos: false
+    termos: false
   });
   const [erro, setErro] = useState('');
-  const [sucesso, setSucesso] = useState(false);
-  const [enviando, setEnviando] = useState(false);
+  const [mensagem, setMensagem] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
-      [name]: type === 'checkbox' ? checked : value
-    });
-  };
-
-  const limparCampos = () => {
-    setForm({
-      nome: '',
-      email: '',
-      senha: '',
-      confirmarSenha: '',
-      aceitarTermos: false
-    });
-  };
-
-  const exibirErro = (mensagem) => {
-    setErro(mensagem);
-    limparCampos();
-    setTimeout(() => setErro(''), 4000);
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : name === 'nome' ? value.toUpperCase() : value
+    }));
+    if (erro) setErro('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMensagem('');
     setErro('');
 
-    if (!form.nome || !form.email || !form.senha || !form.confirmarSenha) {
-      return exibirErro('Preencha todos os campos obrigatórios.');
-    }
-    if (form.senha !== form.confirmarSenha) {
-      return exibirErro('As senhas não coincidem.');
-    }
-    if (!form.aceitarTermos) {
-      return exibirErro('Você precisa aceitar os termos de uso.');
+    if (formData.senha !== formData.confirmarSenha) {
+      setErro('As senhas não coincidem.');
+      return;
     }
 
-    setEnviando(true);
+    if (!formData.termos) {
+      setErro('Você deve aceitar os termos de uso.');
+      return;
+    }
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const tipoPlano = localStorage.getItem('tipoPlano') || 'mensal';
+      const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'tipoPlano': tipoPlano
+        },
         body: JSON.stringify({
-          nome: form.nome,
-          email: form.email,
-          senha: form.senha,
+          ...formData,
+          nome: formData.nome.toUpperCase(),
           perfil: 'responsavel'
         })
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao registrar.');
+      const data = await res.json();
+      if (!res.ok) {
+        setErro(data.error || 'Erro ao cadastrar');
+        return;
       }
-
-      setSucesso(true);
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      localStorage.removeItem('tipoPlano');
+      setMensagem('Cadastro realizado com sucesso! Redirecionando...');
+      setTimeout(() => router.push('/login'), 2000);
     } catch (err) {
-      exibirErro(err.message);
-    } finally {
-      setEnviando(false);
+      console.error(err);
+      setErro('Erro interno ao cadastrar.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-400 to-purple-500 p-6 font-sans">
       <Head>
-        <title>Cadastro Responsável - Interact Joy</title>
+        <title>Cadastro - Responsável | Interact Joy</title>
       </Head>
 
       <AccessibilityControls />
 
-      <main className="container mx-auto px-4 py-10 max-w-xl">
-        <div className="text-center mb-6">
-          <Image
-            src="/images/Logo_Interact_Joy.png"
-            alt="Logo Interact Joy"
-            width={80}
-            height={80}
-            className="mx-auto animate-spin-slow"
+      <header className="flex items-center justify-between mb-6">
+        <Link href="/register/select" className="text-white hover:underline text-lg">← Voltar</Link>
+        <div className="flex items-center gap-4">
+          <Image 
+            src="/images/Logo_Interact_Joy.png" 
+            alt="Logo" 
+            width={56} 
+            height={56} 
+            className="animate-spin-slow" 
           />
-          <h1 className="text-3xl font-bold text-blue-800 mt-4">Cadastro - Responsável</h1>
-          <p className="text-gray-600">Preencha os dados abaixo para criar sua conta</p>
+          <h1 className="text-3xl font-bold text-white">
+            <span className="text-blue-800">Interact</span> <span className="text-green-400">Joy</span>
+          </h1>
         </div>
+        <div className="w-8" />
+      </header>
 
-        {erro && <p className="text-red-600 text-center mb-4">{erro}</p>}
-        {sucesso && <p className="text-green-600 text-center mb-4">Cadastro realizado com sucesso!</p>}
+      <main className="max-w-xl mx-auto bg-white bg-opacity-90 p-8 rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-blue-800 mb-6">Cadastro de Responsável</h2>
+        {mensagem && <p className="text-green-600 mb-4">{mensagem}</p>}
+        {erro && <p className="text-red-600 mb-4">{erro}</p>}
 
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Nome completo</label>
+            <label htmlFor="nome" className="block text-sm font-medium text-blue-900">Nome completo</label>
             <input
               type="text"
+              id="nome"
               name="nome"
-              value={form.nome}
+              value={formData.nome}
               onChange={handleChange}
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 uppercase"
               placeholder="Digite seu nome completo"
-              className="mt-1 block w-full rounded-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="cpf" className="block text-sm font-medium text-blue-900">CPF</label>
+            <input
+              type="text"
+              id="cpf"
+              name="cpf"
+              value={formData.cpf}
+              onChange={handleChange}
+              placeholder="000.000.000-00"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-blue-900">Email</label>
             <input
               type="email"
+              id="email"
               name="email"
-              value={form.email}
+              value={formData.email}
               onChange={handleChange}
-              placeholder="seuemail@exemplo.com"
-              className="mt-1 block w-full rounded-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+              placeholder="exemplo@email.com"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Senha</label>
+          <div className="relative">
+            <label htmlFor="senha" className="block text-sm font-medium text-blue-900">Senha</label>
             <input
-              type="password"
+              type={mostrarSenha ? 'text' : 'password'}
+              id="senha"
               name="senha"
-              value={form.senha}
+              value={formData.senha}
               onChange={handleChange}
-              placeholder="Crie uma senha"
-              className="mt-1 block w-full rounded-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 pr-10"
+              placeholder="Mínimo 6 caracteres"
             />
+            <button type="button" onClick={() => setMostrarSenha(!mostrarSenha)} className="absolute top-9 right-3 text-gray-600" aria-label="Mostrar ou esconder senha">
+              {mostrarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Confirmar senha</label>
+          <div className="relative">
+            <label htmlFor="confirmarSenha" className="block text-sm font-medium text-blue-900">Confirmar senha</label>
             <input
-              type="password"
+              type={mostrarConfirmarSenha ? 'text' : 'password'}
+              id="confirmarSenha"
               name="confirmarSenha"
-              value={form.confirmarSenha}
+              value={formData.confirmarSenha}
               onChange={handleChange}
-              placeholder="Repita sua senha"
-              className="mt-1 block w-full rounded-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+              required
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 pr-10"
+              placeholder="Repita a senha"
             />
+            <button type="button" onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)} className="absolute top-9 right-3 text-gray-600" aria-label="Mostrar ou esconder confirmação">
+              {mostrarConfirmarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           <div className="flex items-start">
-            <input
-              id="aceitarTermos"
-              name="aceitarTermos"
-              type="checkbox"
-              checked={form.aceitarTermos}
-              onChange={handleChange}
-              className="h-5 w-5 text-blue-600"
-            />
-            <label htmlFor="aceitarTermos" className="ml-2 text-sm text-gray-700">
+            <input id="termos" name="termos" type="checkbox" checked={formData.termos} onChange={handleChange} className="h-5 w-5 text-blue-600 mt-1" />
+            <label htmlFor="termos" className="ml-2 text-sm text-gray-700">
               Concordo com os <a href="/termos" className="text-blue-600 underline">termos de uso</a>
             </label>
           </div>
 
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg"
-          >
-            {enviando ? 'Cadastrando...' : 'Cadastrar'}
-          </button>
+          <div className="flex justify-between gap-4 pt-2">
+            <button type="button" onClick={() => router.push('/')} className="w-1/2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg">
+              Cancelar
+            </button>
+            <button type="submit" className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+              Finalizar Cadastro
+            </button>
+          </div>
         </form>
       </main>
     </div>

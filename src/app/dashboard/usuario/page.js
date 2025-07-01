@@ -1,105 +1,156 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-
-import AccessibilityControls from '@/components/AccessibilityControls';
-import GameCard from '@/components/GameCard';
-import GuideCharacter from '@/components/GuideCharacter';
-import AchievementBanner from '@/components/AchievementBanner';
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import AccessibilityControls from "@/components/AccessibilityControls";
+import GameCard from "@/components/GameCard";
+import GuideCharacter from "@/components/GuideCharacter";
+import AchievementBanner from "@/components/AchievementBanner";
+import gameConfig from "@/config/game_config.json";
 
 export default function UsuarioDashboard() {
-  const [userName, setUserName] = useState('Alex');
+  const [userName, setUserName] = useState("");
   const [games, setGames] = useState([]);
   const [showAchievement, setShowAchievement] = useState(false);
   const [achievementData, setAchievementData] = useState({});
   const router = useRouter();
 
   useEffect(() => {
-    setGames([
-      {
-        id: 'communication',
-        title: 'Forme Palavras',
-        imageUrl: '/images/games/communication.png',
-        level: 2,
-        unlocked: true,
-        description: 'Aprenda a formar frases arrastando palavras',
-        category: 'Comunicação',
-        completionRate: 100,
-        difficulty: 'easy'
-      },
-      {
-        id: 'emotions',
-        title: 'Meu Sentimento',
-        imageUrl: '/images/games/emotions.png',
-        level: 1,
-        unlocked: true,
-        description: 'Identifique emoções em diferentes situações',
-        category: 'Regulação Emocional',
-        completionRate: 60,
-        difficulty: 'medium'
-      },
-      {
-        id: 'social',
-        title: 'Amigos na Escola',
-        imageUrl: '/images/games/social.svg',
-        level: 1,
-        unlocked: true,
-        description: 'Aprenda interações sociais em diferentes situações',
-        category: 'Habilidades Sociais',
-        completionRate: 45,
-        difficulty: 'easy'
-      },
-      {
-        id: 'colors',
-        title: 'Mundo das Cores',
-        imageUrl: '/images/games/colors.svg',
-        level: 3,
-        unlocked: true,
-        description: 'Combine cores e formas',
-        category: 'Desenvolvimento Cognitivo',
-        completionRate: 80,
-        difficulty: 'hard'
-      },
-      {
-        id: 'sequence',
-        title: 'Sequência Divertida',
-        imageUrl: '/images/games/sequence.svg',
-        level: 1,
-        unlocked: false,
-        description: 'Complete a sequência de imagens',
-        category: 'Concentração',
-        completionRate: 0,
-        difficulty: 'medium'
-      },
-      {
-        id: 'puzzle',
-        title: 'Quebra-cabeça',
-        imageUrl: '/images/games/puzzle.svg',
-        level: 2,
-        unlocked: false,
-        description: 'Monte imagens divertidas',
-        category: 'Habilidades Motoras',
-        completionRate: 0,
-        difficulty: 'medium'
-      }
-    ]);
+    const fetchAndProcessGames = async () => {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
 
-    const hasNewAchievement = localStorage.getItem('newAchievement');
-    if (hasNewAchievement) {
-      setTimeout(() => {
-        setAchievementData({
-          title: 'Mestre das Palavras',
-          description: 'Você completou 5 jogos de comunicação! 🎉',
-          icon: '/images/achievements/communication-master.svg'
+      try {
+        const userRes = await fetch(`/api/users/${userId}`);
+        const userData = await userRes.json();
+
+        let crianca;
+        if (userData.perfil === "autista") {
+          crianca = {
+            id: userData.criancaId || userData.id,
+            nome: userData.nome,
+            idade: userData.idade,
+            faixa_etaria: userData.faixa_etaria,
+            nivel_suporte: userData.nivel_suporte,
+          };
+        } else {
+          crianca = userData.criancas?.[0];
+        }
+
+        if (!crianca) return;
+
+        setUserName(crianca.nome);
+        const criancaId = crianca.id;
+        const idade = crianca.idade;
+
+        let faixaEtariaFormatada = crianca.faixa_etaria === "faixa_10_12" ? "10-12" : "7-9";
+        const faixaChave = `${faixaEtariaFormatada}_${crianca.nivel_suporte}`;
+
+        const progressoRes = await fetch(`/api/progresso/${criancaId}`);
+        const progressoData = await progressoRes.json();
+
+        const progressoPorJogo = {};
+        progressoData.forEach(p => {
+          progressoPorJogo[p.jogo.id] = p.porcentagem;
         });
-        setShowAchievement(true);
-        localStorage.removeItem('newAchievement');
-      }, 1000);
-    }
+
+        const conquistasRes = await fetch(`/api/conquistas/${criancaId}`);
+        const conquistasData = await conquistasRes.json();
+
+        if (conquistasData.length > 0) {
+          const ultimaConquista = conquistasData[0];
+          setTimeout(() => {
+            setAchievementData({
+              title: ultimaConquista.titulo || "Nova Conquista!",
+              description: ultimaConquista.descricao,
+              icon:
+                ultimaConquista.tipo === "trofeu"
+                  ? "/images/achievements/trophy.svg"
+                  : "/images/achievements/medal.svg",
+            });
+            setShowAchievement(true);
+          }, 1000);
+        }
+
+        const jogosPermitidos = gameConfig?.[faixaEtariaFormatada]?.[crianca.nivel_suporte] || [];
+
+        const predefinedGames = {
+          emotions: {
+            id: "emotions",
+            title: "Meu Sentimento",
+            imageUrl: "/images/games/emotions.png",
+            description: "Identifique emoções em diferentes situações",
+            category: "Regulação Emocional",
+            difficulty: "easy",
+          },
+          communication: {
+            id: "communication",
+            title: "Forme Palavras",
+            imageUrl: "/images/games/communication.png",
+            description: "Aprenda a formar frases arrastando palavras",
+            category: "Comunicação",
+            difficulty: "medium",
+          },
+          social: {
+            id: "social",
+            title: "Amigos na Escola",
+            imageUrl: "/images/games/social.svg",
+            description: "Aprenda interações sociais em diferentes situações",
+            category: "Habilidades Sociais",
+            difficulty: "medium",
+          },
+          colors: {
+            id: "colors",
+            title: "Mundo das Cores",
+            imageUrl: "/images/games/colors.svg",
+            description: "Combine cores e formas",
+            category: "Desenvolvimento Cognitivo",
+            difficulty: "hard",
+          },
+          sequence: {
+            id: "sequence",
+            title: "Sequência Divertida",
+            imageUrl: "/images/games/sequence.svg",
+            description: "Complete a sequência de imagens",
+            category: "Concentração",
+            difficulty: "medium",
+          },
+          puzzle: {
+            id: "puzzle",
+            title: "Quebra-cabeça",
+            imageUrl: "/images/games/puzzle.svg",
+            description: "Monte imagens divertidas",
+            category: "Habilidades Motoras",
+            difficulty: "medium",
+          },
+        };
+
+        const jogosComStatus = Object.values(predefinedGames).map((jogoBase, index, arr) => {
+          const progresso = progressoPorJogo[jogoBase.id] || 0;
+          const permitido = jogosPermitidos.some(j => j.id === jogoBase.id);
+          let unlocked = false;
+
+          if (index === 0 || progressoPorJogo[arr[index - 1]?.id] === 100) {
+            unlocked = permitido;
+          }
+
+          return {
+            ...jogoBase,
+            unlocked,
+            completionRate: progresso,
+          };
+        });
+
+        setGames(jogosComStatus);
+      } catch (err) {
+        console.error("Erro ao carregar dados:", err);
+      }
+    };
+
+    fetchAndProcessGames();
   }, []);
 
   const handleGameSelect = (gameId) => {
@@ -107,8 +158,8 @@ export default function UsuarioDashboard() {
     if (selectedGame?.unlocked) {
       router.push(`/games/${gameId}`);
     } else {
-      playAudio('gentle-error.mp3');
-      showHelpMessage('Complete os jogos anteriores para desbloquear este jogo.');
+      playAudio("gentle-error.mp3");
+      showHelpMessage("Complete os jogos anteriores para desbloquear este jogo.");
     }
   };
 
@@ -119,10 +170,11 @@ export default function UsuarioDashboard() {
   };
 
   const showHelpMessage = (message) => {
-    const helpBox = document.createElement('div');
+    const helpBox = document.createElement("div");
     helpBox.textContent = message;
-    helpBox.setAttribute('role', 'alert');
-    helpBox.className = "fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded shadow-lg text-lg font-medium";
+    helpBox.setAttribute("role", "alert");
+    helpBox.className =
+      "fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded shadow-lg text-lg font-medium";
     document.body.appendChild(helpBox);
     setTimeout(() => helpBox.remove(), 4000);
   };
@@ -140,19 +192,17 @@ export default function UsuarioDashboard() {
 
       <header className="bg-gradient-to-r from-blue-400 to-purple-500 p-4 flex justify-between items-center shadow-md">
         <div className="flex items-left space-x-4 animate-spin-slow">
-          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={100} height={100} />
+          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={128} height={128} />
         </div>
-        <div className="flex-1 text-left">  
-          <h1 className="text-3xl flex space-x-1">
-            <span className='bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">'>
-              Interact 
+        <div className="flex-1 text-left">
+          <h1 className="text-4xl flex space-x-1">
+            <span className="bg-gradient-to-r from-blue-900 to-purple-500 bg-clip-text text-transparent">
+              Interact
             </span>
-            <span className='text-lime-400'>
-              Joy
-            </span>
+            <span className="text-lime-400">Joy</span>
           </h1>
         </div>
-        <div className="text-yellow-100 text-xl font-semibold pr-12">Olá, Vamos Brincar! {/*{userName}!*/}</div>
+        <div className="text-yellow-100 text-xl font-semibold pr-12">Vamos Brincar!</div>
       </header>
 
       <main className="px-6 py-8 max-w-6xl mx-auto">

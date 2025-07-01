@@ -8,8 +8,32 @@
   animation: spin-slow 20s linear infinite;
 }
 
+.high-contrast {
+  --tw-bg-opacity: 1;
+  background-color: #000 !important;
+  color: #FFF !important;
+}
 
+.high-contrast button {
+  background-color: #333 !important;
+  color: #FFF !important;
+}
+.large-text {
+  font-size: 1.25rem; /* ou 20px */
+}
 
+.large-text p,
+.large-text button,
+.large-text span,
+.large-text label {
+  font-size: 1.25rem !important;
+}
+/* Reduzir animações para acessibilidade */
+.reduced-motion * {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
 
 
 :root {

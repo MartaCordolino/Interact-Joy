@@ -1,6 +1,7 @@
+// components/GameCard.js
 import { useState } from 'react';
 import Image from 'next/image';
-import { Play, Lock } from 'lucide-react';
+import { Play, Lock, Sparkles } from 'lucide-react';
 
 const GameCard = ({
   title = 'Jogo sem título',
@@ -62,6 +63,11 @@ const GameCard = ({
   const isHighlighted = isHovered || isFocused;
   const transformClass = !locked && isHighlighted ? 'scale-105' : 'scale-100';
 
+  const handleLockedClick = () => {
+    const audio = new Audio('/audio/gentle-error.mp3');
+    audio.play();
+  };
+
   return (
     <div
       className={`relative w-full overflow-hidden rounded-lg shadow-md transition-transform duration-200 ${transformClass} ${locked ? 'opacity-70' : ''}`}
@@ -72,7 +78,7 @@ const GameCard = ({
       data-testid={`game-card-${title?.toLowerCase().replace(/\s/g, '-')}`}
     >
       <div
-        onClick={locked ? undefined : onClick}
+        onClick={locked ? handleLockedClick : onClick}
         onKeyDown={(e) => {
           if (!locked && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault();
@@ -85,6 +91,7 @@ const GameCard = ({
         aria-disabled={locked}
         aria-label={`${locked ? 'Jogo bloqueado: ' : ''}${title}, ${difficultyStyle.label}, foco em ${targetSkill}`}
         title={locked ? 'Jogo bloqueado' : `Jogar ${title}`}
+        aria-describedby={`desc-${title?.toLowerCase().replace(/\s/g, '-')}`}
       >
         {/* Imagem do Jogo */}
         <div className="relative h-32 overflow-hidden">
@@ -128,14 +135,21 @@ const GameCard = ({
             </>
           )}
 
-          {/* Sobreposição de bloqueio */}
+          {/* Selo 100% concluído */}
+          {!locked && completionRate === 100 && (
+            <div className="absolute top-2 right-2 bg-yellow-300 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 animate-bounce">
+              <Sparkles size={14} /> 100%
+            </div>
+          )}
+
+          {/* Sobreposição de bloqueio com imagem visível */}
           {locked && (
             <div
-              className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 bg-opacity-60"
+              className="absolute inset-0 flex flex-col items-center justify-center backdrop-brightness-50"
               title="Complete o jogo anterior para desbloquear"
             >
-              <Lock size={32} className="text-white" />
-              <p className="text-white font-bold mt-2" aria-hidden="true">Bloqueado</p>
+              <Lock size={32} className="text-white drop-shadow" />
+              <p className="text-white font-bold mt-2 drop-shadow" aria-hidden="true">Bloqueado</p>
               <span className="sr-only">Jogo bloqueado</span>
             </div>
           )}
@@ -144,7 +158,7 @@ const GameCard = ({
         {/* Informações do jogo */}
         <div className="p-4">
           <h3 className="font-bold text-lg text-gray-800">{title}</h3>
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{description}</p>
+          <p id={`desc-${title?.toLowerCase().replace(/\s/g, '-')}`} className="text-sm text-gray-600 mt-1 line-clamp-2">{description}</p>
 
           {/* Tag da habilidade */}
           <div className="flex items-center mt-3">

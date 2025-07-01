@@ -1,69 +1,52 @@
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+// src/app/api/auth/register/route.js
+
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { hashSenha } from '@/utils/auth';
 
 export async function POST(request) {
   try {
-    const { nome, email, senha, perfil } = await request.json();
+    const { nome, email, senha, perfil, cpf, tipoPlano } = await request.json();
 
     if (!nome || !email || !senha || !perfil) {
-      return NextResponse.json(
-        { error: 'Todos os campos são obrigatórios.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Todos os campos são obrigatórios.' }, { status: 400 });
     }
 
-    const perfisValidos = ['autista', 'responsavel', 'especialista'];
-    if (!perfisValidos.includes(perfil)) {
-      return NextResponse.json(
-        { error: 'Perfil inválido.' },
-        { status: 400 }
-      );
+    if (!['responsavel', 'especialista'].includes(perfil)) {
+      return NextResponse.json({ error: 'Perfil inválido para este endpoint.' }, { status: 400 });
     }
 
-    const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (!emailValido) {
-      return NextResponse.json(
-        { error: 'Formato de e-mail inválido.' },
-        { status: 400 }
-      );
+    const existente = await prisma.usuarios.findUnique({ where: { email } });
+    if (existente) {
+      return NextResponse.json({ error: 'E-mail já cadastrado.' }, { status: 409 });
     }
 
-    const emailExiste = await prisma.usuarios.findUnique({ where: { email } });
-    if (emailExiste) {
-      return NextResponse.json(
-        { error: 'Email já cadastrado.' },
-        { status: 400 }
-      );
-    }
-
-    const senhaCriptografada = await bcrypt.hash(senha, 10);
+    const senhaHash = await hashSenha(senha);
 
     const novoUsuario = await prisma.usuarios.create({
       data: {
-        nome,
+        nome: nome.toUpperCase(),
         email,
-        senha: senhaCriptografada,
+        senha: senhaHash,
         perfil,
-      },
+        cpf,
+        planos_assinatura: {
+          create: {
+            tipo: tipoPlano || 'mensal'  // ← padrão caso não venha do front
+          }
+        }
+      }
     });
 
     return NextResponse.json(
-      {
-        message: 'Usuário criado com sucesso.',
-        user: {
-          id: novoUsuario.id,
-          nome: novoUsuario.nome,
-          email: novoUsuario.email,
-          perfil: novoUsuario.perfil,
-        },
-      },
+      { message: 'Cadastro realizado com sucesso.', userId: novoUsuario.id },
       { status: 201 }
     );
+
   } catch (error) {
-    console.error('Erro ao cadastrar usuário:', error);
+    console.error('Erro no cadastro:', error);
     return NextResponse.json(
-      { error: 'Erro interno no servidor.' },
+      { error: 'Erro interno ao registrar usuário.' },
       { status: 500 }
     );
   }
