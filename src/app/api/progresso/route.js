@@ -6,18 +6,26 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request) {
   try {
     const { id_crianca, id_jogo, porcentagem, tentativas } = await request.json();
-    console.log('🔍 ID do jogo recebido:', id_jogo); // ← aqui
 
-    if (!id_crianca || !id_jogo || porcentagem == null || tentativas == null) {
+    // Validação completa
+    if (!id_crianca || !id_jogo || porcentagem === undefined || tentativas === undefined) {
       return NextResponse.json(
-        { error: 'Dados obrigatórios faltando.' },
+        { error: 'Todos os campos são obrigatórios.' },
         { status: 400 }
       );
     }
 
-    // Buscar o jogo pelo url_path
+    const jogoId = Number(id_jogo);
+    if (isNaN(jogoId)) {
+      return NextResponse.json(
+        { error: 'ID do jogo inválido.' },
+        { status: 400 }
+      );
+    }
+
+    // Verifica se o jogo existe
     const jogo = await prisma.jogos.findUnique({
-      where: { url_path: id_jogo }, // id_jogo vem como 'emotions', 'colors' etc.
+      where: { id: id_jogo },
     });
 
     if (!jogo) {
@@ -27,16 +35,15 @@ export async function POST(request) {
       );
     }
 
-    // Verifica se já existe progresso para essa criança e jogo
+    // Verifica se já existe progresso
     const progressoExistente = await prisma.progresso.findFirst({
       where: {
         id_crianca,
-        id_jogo: jogo.id,
+        id_jogo: jogoId,
       },
     });
 
     if (progressoExistente) {
-      // Atualizar progresso existente
       await prisma.progresso.update({
         where: { id: progressoExistente.id },
         data: {
@@ -46,11 +53,10 @@ export async function POST(request) {
         },
       });
     } else {
-      // Criar novo registro de progresso
       await prisma.progresso.create({
         data: {
           id_crianca,
-          id_jogo: jogo.id,
+          id_jogo: jogoId,
           porcentagem,
           tentativas,
         },
@@ -58,8 +64,12 @@ export async function POST(request) {
     }
 
     return NextResponse.json({ sucesso: true });
+
   } catch (erro) {
-    console.error('Erro ao salvar progresso:', erro);
-    return NextResponse.json({ error: 'Erro ao salvar progresso.' }, { status: 500 });
+    console.error('❌ Erro ao salvar progresso:', erro);
+    return NextResponse.json(
+      { error: 'Erro interno ao salvar progresso.' },
+      { status: 500 }
+    );
   }
 }

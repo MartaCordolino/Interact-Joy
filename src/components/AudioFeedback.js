@@ -27,41 +27,6 @@ const AudioFeedback = ({
 
   const audioSrc = src || defaultSounds[type] || defaultSounds.info;
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.volume = volume;
-    audio.playbackRate = playbackRate;
-    audio.loop = loop;
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-      onComplete();
-    };
-
-    const handleLoadedData = () => {
-      setIsLoaded(true);
-      if (autoPlay && !isPlaying) playAudio();
-    };
-
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('loadeddata', handleLoadedData);
-
-    return () => {
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('loadeddata', handleLoadedData);
-    };
-  }, [volume, playbackRate, loop, onComplete, autoPlay]);
-
-  useEffect(() => {
-    if (play && isLoaded && !isPlaying) {
-      playAudio();
-    } else if (!play && isPlaying) {
-      pauseAudio();
-    }
-  }, [play, isLoaded]);
-
   const playAudio = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -88,6 +53,41 @@ const AudioFeedback = ({
   const toggleAudio = () => {
     isPlaying ? pauseAudio() : playAudio();
   };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.volume = volume;
+    audio.playbackRate = playbackRate;
+    audio.loop = loop;
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      onComplete();
+    };
+
+    const handleLoadedData = () => {
+      setIsLoaded(true);
+      if (autoPlay && !isPlaying) playAudio();
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('loadeddata', handleLoadedData);
+
+    return () => {
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, [volume, playbackRate, loop, onComplete, autoPlay, isPlaying]);
+
+  useEffect(() => {
+    if (play && isLoaded && !isPlaying) {
+      playAudio();
+    } else if (!play && isPlaying) {
+      pauseAudio();
+    }
+  }, [play, isLoaded, isPlaying]);
 
   return (
     <div className="audio-feedback">
@@ -138,7 +138,7 @@ export const AudioFeedbackSpeak = (text) => {
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = 'pt-BR';
   utterance.pitch = 1;
-  utterance.rate = 1;
+  utterance.rate = 0.9; // ← mais lento para não cortar final da frase
   utterance.volume = 1;
 
   const voices = synth.getVoices();

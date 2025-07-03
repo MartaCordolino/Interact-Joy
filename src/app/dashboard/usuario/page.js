@@ -44,17 +44,16 @@ export default function UsuarioDashboard() {
 
         setUserName(crianca.nome);
         const criancaId = crianca.id;
-        const idade = crianca.idade;
 
-        let faixaEtariaFormatada = crianca.faixa_etaria === "faixa_10_12" ? "10-12" : "7-9";
-        const faixaChave = `${faixaEtariaFormatada}_${crianca.nivel_suporte}`;
+        const faixaEtariaFormatada = crianca.faixa_etaria === "faixa_10_12" ? "10-12" : "7-9";
 
         const progressoRes = await fetch(`/api/progresso/${criancaId}`);
         const progressoData = await progressoRes.json();
-
         const progressoPorJogo = {};
-        progressoData.forEach(p => {
-          progressoPorJogo[p.jogo.id] = p.porcentagem;
+        progressoData.forEach((p) => {
+          if (p.jogo && p.jogo.url_path !== undefined) {
+            progressoPorJogo[p.jogo.url_path] = p.porcentagem;
+          }
         });
 
         const conquistasRes = await fetch(`/api/conquistas/${criancaId}`);
@@ -128,17 +127,19 @@ export default function UsuarioDashboard() {
           },
         };
 
-        const jogosComStatus = Object.values(predefinedGames).map((jogoBase, index, arr) => {
-          const progresso = progressoPorJogo[jogoBase.id] || 0;
-          const permitido = jogosPermitidos.some(j => j.id === jogoBase.id);
-          let unlocked = false;
+        let desbloqueioAtivo = true;
+        const jogosComStatus = jogosPermitidos.map((jogoPermitido) => {
+          const jogoBase = predefinedGames[jogoPermitido.id];
+          const progresso = progressoPorJogo[jogoPermitido.id] || 0;
+          const unlocked = desbloqueioAtivo;
 
-          if (index === 0 || progressoPorJogo[arr[index - 1]?.id] === 100) {
-            unlocked = permitido;
+          if (progresso < 100) {
+            desbloqueioAtivo = false;
           }
 
           return {
             ...jogoBase,
+            id: jogoPermitido.id,
             unlocked,
             completionRate: progresso,
           };

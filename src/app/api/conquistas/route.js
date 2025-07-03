@@ -9,12 +9,11 @@ export async function POST(request) {
       id_crianca,
       id_jogo, // pode ser um número (id) ou uma string (url_path)
       tipo_conquista,
-      titulo,
       descricao,
     } = body;
 
     // 🔍 Validações básicas
-    if (!id_crianca || !id_jogo || !tipo_conquista || !titulo || !descricao) {
+    if (!id_crianca || !id_jogo || !tipo_conquista || !descricao) {
       return NextResponse.json(
         { error: 'Todos os campos são obrigatórios.' },
         { status: 400 }
@@ -42,7 +41,6 @@ export async function POST(request) {
         id_crianca: Number(id_crianca),
         id_jogo: jogo.id,
         tipo_conquista,
-        titulo: titulo.trim(),
         descricao: descricao.trim(),
       },
     });

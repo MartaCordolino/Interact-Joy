@@ -56,15 +56,16 @@ export default function ParentDashboardPage() {
       const conquistasJson = await conquistasRes.json();
 
       const combinado = progressoJson.map((item) => {
-        const conquistasDoJogo = conquistasJson.filter(c => c.id_jogo === item.jogo.id);
-        return {
-          game: item.jogo.nome,
-          objective: item.objetivo ?? 'Objetivo não especificado',
-          date: new Date(item.ultimo_acesso).toLocaleString('pt-BR'),
-          progress: `${item.porcentagem}%`,
-          achievements: conquistasDoJogo.map(c => c.tipo).join(', ') || 'Nenhuma'
-        };
-      });
+  const conquistasDoJogo = conquistasJson.filter(c => c.id_jogo === item.jogo.id);
+  return {
+    game: item.jogo.nome,
+    objective: item.jogo?.categoria || 'Categoria não informada', // ✔️ ajustado
+    date: new Date(item.ultimo_acesso).toLocaleString('pt-BR'),
+    progress: `${item.porcentagem}%`,
+    achievements: conquistasDoJogo.map(c => c.tipo).join(', ') || 'Nenhuma'
+  };
+});
+
 
       setProgressData(combinado);
     } catch (error) {
@@ -78,44 +79,76 @@ export default function ParentDashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  const exportarPDF = () => {
-    if (!childData) return alert('Informações da criança não encontradas.');
+  const exportarPDF = async () => {
+  if (!childData) return alert('Informações da criança não encontradas.');
 
-    const doc = new jsPDF();
-    const dataAtual = new Date().toLocaleString('pt-BR');
+  const doc = new jsPDF();
+  const dataAtual = new Date().toLocaleString('pt-BR');
 
-    doc.setFontSize(18);
-    doc.text('Relatório de Acompanhamento', 105, 20, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`Emitido em: ${dataAtual}`, 105, 28, { align: 'center' });
+  // Função para converter imagem para base64
+  const toBase64 = (url) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      fetch(url)
+        .then(res => res.blob())
+        .then(blob => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+    });
+  };
 
-    doc.setFontSize(12);
-    doc.text(`
+  const logoBase64 = await toBase64('/images/Logo_Interact_Joy.png');
+
+  // Inserção da logo
+  doc.addImage(logoBase64, 'PNG', 85, 10, 40, 40); // Centralizado (x=85 para largura padrão A4)
+
+  // Nome do sistema abaixo da logo
+  doc.setFontSize(18);
+  doc.setTextColor(33, 150, 243); // Azul para "Interact"
+  doc.text('Interact', 105, 58, { align: 'center' });
+  doc.setTextColor(76, 175, 80); // Verde para "Joy"
+  doc.text('Joy', 105, 66, { align: 'center' });
+
+  // Título do relatório
+  doc.setTextColor(0, 0, 0); // Preto
+  doc.setFontSize(16);
+  doc.text('Relatório de Acompanhamento', 105, 76, { align: 'center' });
+
+  // Data de emissão
+  doc.setFontSize(10);
+  doc.text(`Emitido em: ${dataAtual}`, 105, 82, { align: 'center' });
+
+  // Dados da criança
+  doc.setFontSize(12);
+  doc.text(`
 Nome: ${childData.nome}
 Idade: ${childData.idade} anos
 E-mail: ${childData.email}
 Nível de Suporte: ${childData.nivelSuporteDescricao || childData.nivel_suporte}`,
-      15, 45);
+    15, 95);
 
-    if (progressData.length > 0) {
-      autoTable(doc, {
-        startY: 80,
-        head: [['Jogo', 'Objetivo', 'Data/Hora', 'Progresso', 'Conquistas']],
-        body: progressData.map(item => [
-          item.game,
-          item.objective,
-          item.date,
-          item.progress,
-          item.achievements
-        ])
-      });
-    } else {
-      doc.setFontSize(12);
-      doc.text('Nenhum progresso registrado até o momento.', 15, 80);
-    }
+  // Tabela com progresso e conquistas
+  if (progressData.length > 0) {
+    autoTable(doc, {
+      startY: 120,
+      head: [['Jogo', 'Categoria', 'Data/Hora', 'Progresso', 'Conquistas']],
+      body: progressData.map(item => [
+        item.game,
+        item.objective, // Agora mostra a categoria
+        item.date,
+        item.progress,
+        item.achievements
+      ])
+    });
+  } else {
+    doc.text('Nenhum progresso registrado até o momento.', 15, 120);
+  }
 
-    doc.output('dataurlnewwindow');
-  };
+  doc.output('dataurlnewwindow');
+};
+
 
   return (
     <div className={`min-h-screen ${settings.highContrast ? 'bg-black text-white' : 'bg-blue-50'}`}>
@@ -177,7 +210,7 @@ Nível de Suporte: ${childData.nivelSuporteDescricao || childData.nivel_suporte}
                   <thead className="bg-blue-100">
                     <tr>
                       <th className="py-2 px-3">Jogo</th>
-                      <th className="py-2 px-3">Objetivo</th>
+                      <th className="py-2 px-3">Categoria</th>
                       <th className="py-2 px-3">Data/Hora</th>
                       <th className="py-2 px-3">Progresso</th>
                       <th className="py-2 px-3">Conquistas</th>

@@ -10,7 +10,7 @@ import RewardAnimation from '@/components/RewardAnimation';
 import gameConfig from '@/config/game_config.json';
 import { Volume2, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { salvarProgresso, salvarConquista } from '@/utils/persistenciaHelpers';
+import { salvarProgresso, salvarConquista } from '@/utils/persistencia';
 
 function SequenceGame() {
   const router = useRouter();

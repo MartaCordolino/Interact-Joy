@@ -8,7 +8,10 @@ import { useRouter } from 'next/navigation';
 import AccessibilityControls from '@/components/AccessibilityControls';
 import AudioFeedback, { AudioFeedbackSpeak } from '@/components/AudioFeedback';
 import { salvarProgresso, salvarConquista } from '@/utils/persistencia';
+import { jogosIds } from '@/utils/jogosIds';
 import { motion } from 'framer-motion';
+import { Volume2 } from 'lucide-react';
+
 
 const emotionsData = [
   {
@@ -42,6 +45,7 @@ export default function EmotionsGame() {
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [playInstruction, setPlayInstruction] = useState(true);
   const [nomeCrianca, setNomeCrianca] = useState('jogador');
+  const [tentativas, setTentativas] = useState(0);
 
   const router = useRouter();
   const currentEmotion = emotionsData[currentIndex];
@@ -65,6 +69,7 @@ export default function EmotionsGame() {
 
     setSelected(option);
     setPlayInstruction(false);
+    setTentativas(prev => prev + 1); // ← incrementa tentativa  
 
     const isCorrect = option === currentEmotion.correct;
     setFeedback(isCorrect ? 'Parabéns! Você acertou!' : `Ops! Era ${currentEmotion.correct}`);
@@ -90,21 +95,22 @@ export default function EmotionsGame() {
         if (criancaId) {
           salvarProgresso({
             id_crianca: parseInt(criancaId),
-            id_jogo: "emotions",
+            id_jogo: jogosIds.emotions,
             porcentagem,
+            tentativas,
           });
 
           if (porcentagem === 100) {
             salvarConquista({
               id_crianca: parseInt(criancaId),
-              id_jogo: "emotions",
+              id_jogo: jogosIds.emotions,
               tipo_conquista: "trofeu",
               descricao: "Acertou todas as emoções!",
             });
           }
         }
       }
-    }, 2500);
+    }, 1200);
   };
 
   const handleRestart = () => {
@@ -119,20 +125,50 @@ export default function EmotionsGame() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 to-purple-200 p-4 text-center">
-      <header className="flex justify-between items-center mb-4">
-        <Link href="/dashboard/usuario" className="text-blue-700 hover:underline ml-2">← Voltar</Link>
-        <div className="flex items-center gap-3">
-          <Image src="/images/Logo_Interact_Joy.png" alt="Logo" width={60} height={60} className="animate-spin-slow" />
-          <h1 className="text-xl font-bold text-blue-800">Olá, {nomeCrianca}!</h1>
-        </div>
-        <AudioFeedback type="instruction" autoPlay={false} />
-      </header>
+
+      <header className="relative flex justify-between items-center flex-wrap bg-gradient-to-br from-purple-600 to-blue-300 px-4 py-6 mb-6 min-h-[100px]">
+
+  {/* Botão Voltar à esquerda */}
+  <Link
+    href="/dashboard/usuario"
+    className="text-white hover:underline text-lg mb-2 sm:mb-0"
+  >
+    ← Voltar
+  </Link>
+
+  {/* Logo e título centralizados */}
+  <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-0 -ml-8">
+    <Image
+      src="/images/Logo_Interact_Joy.png"
+      alt="Logo"
+      width={100}
+      height={100}
+      className="animate-spin-slow"
+    />
+    <h1 className="text-3xl font-bold whitespace-nowrap">
+      <span className="text-blue-600">Interact</span>{' '}
+      <span className="text-green-300">Joy</span>
+    </h1>
+  </div>
+
+  {/* Saudação + Acessibilidade à direita */}
+  <div className="flex items-center gap-x-6 mt-2 sm:mt-0">
+    <p className="text-blue-950  text-2xl font-bold whitespace-nowrap">
+      Olá, {nomeCrianca}!
+    </p>
+     <div className="shrink-0">
+        <AccessibilityControls />
+      </div>
+  </div>
+</header>
+
 
       {!showResult ? (
         <div>
-          <h2 className="text-2xl font-semibold text-purple-700 mb-4">Jogo das Emoções</h2>
-          <div className="max-w-sm mx-auto">
-            <Image src={currentEmotion.image} alt="Expressão" width={200} height={200} className="mx-auto mb-4 rounded-xl shadow-md" />
+          <h2 className="text-4xl font-semibold text-purple-700 mt-12 mb-6">Jogo das Emoções</h2>
+          <div className="max-w-md mx-auto">
+            <Image src={currentEmotion.image} alt="Expressão" width={280} height={280} className="mx-auto mb-6 rounded-2xl shadow-lg" 
+            priority/>
             <div className="grid grid-cols-2 gap-4">
               {currentEmotion.options.map((option, index) => (
                 <button
@@ -156,7 +192,7 @@ export default function EmotionsGame() {
         </div>
       ) : (
         <div className="mt-10">
-          <h2 className="text-2xl font-bold text-green-600">Fim do jogo!</h2>
+          <h2 className="text-3xl font-bold text-green-600">Fim do jogo!</h2>
           <p className="text-lg mt-2">Você acertou {correctCount} de {emotionsData.length} emoções.</p>
 
           {correctCount === emotionsData.length && (
@@ -173,11 +209,11 @@ export default function EmotionsGame() {
           <div className="mt-6 flex flex-col gap-3 items-center">
             <button
               onClick={handleRestart}
-              className="bg-purple-600 text-white py-2 px-6 rounded-xl hover:bg-purple-700"
+              className="bg-purple-600 text-white py-2 px-6 rounded-xl hover:bg-purple-700 text-2xl"
             >
               Jogar Novamente
             </button>
-            <Link href="/dashboard/usuario" className="text-blue-700 hover:underline">
+            <Link href="/dashboard/usuario" className="text-blue-700 text-2xl hover:underline">
               Voltar ao painel
             </Link>
           </div>

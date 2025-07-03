@@ -1,27 +1,43 @@
+// utils/persistencia.js
+
 // Envia dados de progresso para o backend
-export async function salvarProgresso({ id_crianca, id_jogo, porcentagem }) {
+export async function salvarProgresso({ id_crianca, id_jogo, porcentagem, tentativas }) {
   try {
+    // Validação mínima
+    if (!id_crianca || !id_jogo || porcentagem === undefined || tentativas === undefined) {
+      throw new Error('Dados obrigatórios ausentes para salvar progresso.');
+    }
+
+    console.log('🔄 Enviando progresso:', { id_crianca, id_jogo, porcentagem, tentativas });
+
     const resposta = await fetch('/api/progresso', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_crianca, id_jogo, porcentagem }),
+      body: JSON.stringify({
+        id_crianca: Number(id_crianca),
+        id_jogo: Number(id_jogo),
+        porcentagem: Number(porcentagem),
+        tentativas: Number(tentativas),
+      }),
     });
 
     if (!resposta.ok) {
-      throw new Error('Erro ao salvar progresso.');
+      const erro = await resposta.json();
+      throw new Error(erro?.error || 'Erro ao salvar progresso.');
     }
   } catch (erro) {
-    console.error('Erro na persistência do progresso:', erro);
+    console.error('❌ Erro na persistência do progresso:', erro.message);
   }
 }
 
 // Envia dados de conquista para o backend
-export async function salvarConquista({ id_crianca, id_jogo, tipo, titulo, descricao }) {
+export async function salvarConquista({ id_crianca, id_jogo, tipo_conquista, descricao }) {
   try {
-    // Validação prévia
-    if (!id_crianca || !id_jogo || !tipo || !titulo || !descricao) {
-      throw new Error('Dados insuficientes para salvar conquista.');
+    if (!id_crianca || !id_jogo || !tipo_conquista || !descricao) {
+      throw new Error('Dados obrigatórios ausentes para salvar conquista.');
     }
+
+    console.log('🎖️ Enviando conquista:', { id_crianca, id_jogo, tipo_conquista, descricao });
 
     const resposta = await fetch('/api/conquistas', {
       method: 'POST',
@@ -29,8 +45,7 @@ export async function salvarConquista({ id_crianca, id_jogo, tipo, titulo, descr
       body: JSON.stringify({
         id_crianca: Number(id_crianca),
         id_jogo: Number(id_jogo),
-        tipo_conquista: tipo, // deve ser 'trofeu' ou 'medalha'
-        titulo: titulo.trim(),
+        tipo_conquista,
         descricao: descricao.trim(),
       }),
     });
@@ -41,7 +56,6 @@ export async function salvarConquista({ id_crianca, id_jogo, tipo, titulo, descr
     }
 
   } catch (erro) {
-    console.error('Erro na persistência da conquista:', erro.message);
+    console.error('❌ Erro na persistência da conquista:', erro.message);
   }
 }
-
